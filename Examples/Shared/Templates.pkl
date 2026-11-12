@@ -1,0 +1,23 @@
+module examples.Templates
+import "../../Pkl/Project.pkl"
+
+swiftTarget: Project.Target = new {
+  settings { groups { "compiler" } }
+  sources { new { path = "Sources/${target_name}" } }
+}
+
+macOSTool: Project.Target = new {
+  templates { "Swift" }
+  type = "tool"
+  platform = "macOS"
+  deploymentTarget = "14.0"
+}
+
+iOS: Project.Target = new {
+  templates { "Swift" }
+  platform = "iOS"
+  deploymentTarget = "17.0"
+  settings {
+    base { ["PRODUCT_BUNDLE_IDENTIFIER"] = "com.example.${bundleSuffix}" }
+  }
+}

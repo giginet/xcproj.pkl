@@ -1,0 +1,25 @@
+module examples.Settings
+import "../../Pkl/Project.pkl"
+
+warnings: Project.Settings = new {
+  base {
+    ["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+    ["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+  }
+}
+
+compiler: Project.Settings = new {
+  groups { "warnings" }
+  base {
+    ["SWIFT_VERSION"] = "6.0"
+    ["OTHER_SWIFT_FLAGS"] = new Listing {
+      "$(inherited)"
+      "-DTEAM"
+    }
+  }
+  configs {
+    ["Debug"] {
+      base { ["ENABLE_TESTABILITY"] = "YES" }
+    }
+  }
+}

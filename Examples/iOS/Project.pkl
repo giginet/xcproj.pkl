@@ -1,0 +1,51 @@
+amends "../../Pkl/Project.pkl"
+import "../Shared/Settings.pkl" as SharedSettings
+import "../Shared/Templates.pkl" as SharedTemplates
+
+name = "Demo"
+idNamespace = "com.example.demo"
+settingGroups {
+  ["warnings"] = SharedSettings.warnings
+  ["compiler"] = SharedSettings.compiler
+}
+targetTemplates {
+  ["Swift"] = SharedTemplates.swiftTarget
+  ["iOS"] = SharedTemplates.iOS
+  ["Framework"] {
+    templates { "iOS" }
+    type = "framework"
+  }
+  ["App"] {
+    templates { "iOS" }
+    type = "application"
+    settings {
+      base {
+        ["INFOPLIST_KEY_UILaunchScreen_Generation"] = "YES"
+        ["INFOPLIST_KEY_UIApplicationSceneManifest_Generation"] = "YES"
+      }
+    }
+  }
+}
+configFiles {
+  ["Debug"] = "Config/Debug.xcconfig"
+}
+targets {
+  ["core"] {
+    name = "DemoCore"
+    templates { "Framework" }
+    templateAttributes { ["bundleSuffix"] = "core" }
+  }
+  ["app"] {
+    name = "DemoApp"
+    templates { "App" }
+    templateAttributes { ["bundleSuffix"] = "app" }
+    dependencies { new { target = "core"; embed = true } }
+  }
+  ["tests"] {
+    name = "DemoCoreTests"
+    templates { "iOS" }
+    type = "bundle.unit-test"
+    templateAttributes { ["bundleSuffix"] = "tests" }
+    dependencies { new { target = "core" } }
+  }
+}

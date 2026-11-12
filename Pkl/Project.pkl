@@ -1,0 +1,61 @@
+/// Authoring schema for xcproj-pkl. Evaluate with Pkl 0.33 or later.
+open module xcproj.Project
+
+schemaVersion: Int(isBetween(1, 1)) = 1
+name: String(!isEmpty)
+/// Keep this unchanged when renaming the project to preserve generated IDs.
+idNamespace: String(!isEmpty) = name
+/// Relative to the entry Pkl file, regardless of where a template is imported from.
+projectDir: String = "."
+configs: Mapping<String, "debug" | "release"> = new {
+  ["Debug"] = "debug"
+  ["Release"] = "release"
+}
+defaultConfiguration: String = "Debug"
+settings: Settings = new {}
+configFiles: Mapping<String, String>
+settingGroups: Mapping<String, Settings>
+targetTemplates: Mapping<String, Target>
+/// Keys are stable target identities. Override Target.name to change the display name.
+targets: Mapping<String, Target>
+
+typealias SettingValue = String | Listing<String>
+
+open class Settings {
+  groups: Listing<String>
+  base: Mapping<String, SettingValue>
+  /// Exact, case-sensitive configuration names. Values may import setting groups.
+  configs: Mapping<String, Settings>
+}
+
+open class Target {
+  name: String?
+  templates: Listing<String>
+  templateAttributes: Mapping<String, String>
+  type: ("application" | "framework" | "bundle" | "bundle.unit-test" | "unit-test-bundle" | "tool")?
+  platform: ("iOS" | "macOS")?
+  deploymentTarget: String?
+  /// Optional explicit IDs, useful when migrating an existing project.
+  id: String(matches(Regex("[A-Fa-f0-9]{24}")))?
+  productId: String(matches(Regex("[A-Fa-f0-9]{24}")))?
+  settings: Settings = new {}
+  configFiles: Mapping<String, String>
+  sources: Listing<Source>
+  dependencies: Listing<Dependency>
+}
+
+class Source {
+  path: String(!isEmpty)
+  kind: "folder" | "file" = "folder"
+  /// Exact relative paths within a synchronized folder; globs are not supported.
+  excludes: Listing<String>
+}
+
+class Dependency {
+  /// Stable key in Project.targets, not the target's display name.
+  target: String(!isEmpty)
+  link: Boolean = true
+  embed: Boolean = false
+}
+
+output { renderer = new JsonRenderer {} }

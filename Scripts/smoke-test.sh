@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+scratch="$(mktemp -d "${TMPDIR:-/tmp}/xcproj-pkl-smoke.XXXXXX")"
+trap 'rm -rf "$scratch"' EXIT
+cd "$repo_root"
+swift build
+cli="$(swift build --show-bin-path)/xcproj-pkl"
+"$cli" validate Examples/Tool/Project.pkl --pkl "${PKL_EXEC:-pkl}"
+"$cli" generate Examples/Tool/Project.pkl --pkl "${PKL_EXEC:-pkl}" --output "$scratch/Tool.xcodeproj"
+"$cli" validate "$scratch/Tool.xcodeproj"
+xcodebuild -quiet -project "$scratch/Tool.xcodeproj" -scheme Hello -configuration Debug \
+  -destination 'platform=macOS' -derivedDataPath "$scratch/DerivedData" CODE_SIGNING_ALLOWED=NO build
+"$scratch/DerivedData/Build/Products/Debug/Hello"
