@@ -1,6 +1,6 @@
 # xcproj-pkl
 
-PklからXcodeのJSON形式 `project.xcproj` を生成・検証するSwift製CLIのプロトタイプです。
+PklからXcodeのJSON形式 `project.xcproj` と、複数プロジェクトをまとめる `.xcworkspace` を生成・検証するSwift製CLIのプロトタイプです。
 
 XcodeGenの `targetTemplates` / `settingGroups` を参考にしたPklスキーマを提供します。
 Pklの `import`、オブジェクト継承、型チェックと、Swiftによる名前付きテンプレートの展開・参照検証を組み合わせています。
@@ -42,6 +42,98 @@ Pkl Packageをimportする場合は、通常どおり `PklProject` を用意し�
 生成は検証成功後に行い、`project.xcproj` だけをアトミックに書き換えます。
 出力が同じなら書き込みません。既存のSchemeなどは保持します。
 `project.pbxproj` が存在する出力先への生成はエラーにし、自動変換・削除は行いません。
+
+## 多数のプロジェクトを持つWorkspace
+
+**1つのProject.pklを1つのxcodeprojとして扱い、Workspace.pklからまとめて生成します。**
+実例は [Examples/Workspace](Examples/Workspace/Workspace.pkl) です。
+3つのプロジェクトがそれぞれFrameworkとTestsを持ち、共通のターゲットテンプレートと設定を継承します。
+
+```text
+Examples/Workspace/
+├── Workspace.pkl
+├── Shared/FrameworkProject.pkl      共通設定とFramework / Testsテンプレート
+└── Modules/
+    ├── Catalog/Project.pkl          → Catalog.xcodeproj（2ターゲット）
+    ├── DesignSystem/Project.pkl     → DesignSystem.xcodeproj（2ターゲット）
+    └── Networking/Project.pkl       → Networking.xcodeproj（2ターゲット）
+```
+
+Workspace.pklではProjectモジュールをimportします。多数のプロジェクトは `import*` で列挙できます。
+
+```pkl
+amends "../../Pkl/Workspace.pkl"
+
+name = "Modular"
+projects = import*("Modules/*/Project.pkl")
+```
+
+再帰的な探索には `Modules/**/Project.pkl` を使えます。明示的に選ぶ場合も同じ型を使います。
+
+```pkl
+projects {
+  ["catalog"] = import("Modules/Catalog/Project.pkl")
+  ["networking"] = import("Modules/Networking/Project.pkl")
+}
+```
+
+各Project.pklは共通のProjectテンプレートをamendします。
+[FrameworkProject.pkl](Examples/Workspace/Shared/FrameworkProject.pkl) が `Project.pkl` スキーマをextendsし、
+`Swift` → `Framework` / `Tests` のターゲットテンプレート継承と、2つのターゲットを定義しています。
+
+```pkl
+// Modules/Catalog/Project.pkl
+amends "../../Shared/FrameworkProject.pkl"
+
+name = "Catalog"
+// 共通定義からCatalog / CatalogTestsが生成されます。
+// 必要なら targets { ["framework"] { settings { ... } } } で個別に上書きできます。
+```
+
+この例ではTestsから同じプロジェクトのFrameworkへの依存もテンプレートに含めています。
+各モジュールの `Sources/` と `Tests/` は、そのモジュール自身のProject.pkl基準で解決されます。
+
+```sh
+# 全Projectの継承・ソース・依存を検証。まだ出力しません。
+swift run xcproj-pkl validate Examples/Workspace/Workspace.pkl
+
+# 3つのxcodeprojと、それらを参照するModular.xcworkspaceを生成
+swift run xcproj-pkl generate Examples/Workspace/Workspace.pkl
+swift run xcproj-pkl validate Examples/Workspace/Modular.xcworkspace
+
+# Workspace経由でFrameworkをビルド
+xcodebuild -workspace Examples/Workspace/Modular.xcworkspace \
+  -scheme Catalog -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+
+# 共有Schemeをまだ生成しないため、TestsはProjectのターゲットを直接指定
+xcodebuild -project Examples/Workspace/Modules/Catalog/Catalog.xcodeproj \
+  -target CatalogTests -sdk macosx CODE_SIGNING_ALLOWED=NO build
+
+# 1つのProject.pklだけを生成することもできます。
+swift run xcproj-pkl generate Examples/Workspace/Modules/Catalog/Project.pkl
+```
+
+### Workspaceの生成規則
+
+- PklはWorkspace単位で1回評価します。共通のimportと型チェックもその評価内で処理します。
+- 各ProjectモジュールのURIを `pkl:reflect.moduleOf` で取得し、その場所を `projectDir` の基準にします。
+  Workspace側でインポートしたProjectをamendしても、元のモジュールの場所を保持します。
+- Workspaceは `workspaceDir/name.xcworkspace` に生成します。`workspaceDir` はWorkspace.pkl基準で、既定値は `"."` です。
+- 各Projectは従来どおり、自分自身の `projectDir/name.xcodeproj` に生成します。
+- `generate Workspace.pkl -o /tmp/Modular.xcworkspace` はWorkspaceの出力先だけを変更します。
+  Projectの出力先はそのままで、Workspaceの参照パスを相対パスに調整します。
+- Projectの登録キーで並べ替えて出力し、globの列挙順による差分を避けます。
+- 重複する登録キー、同じProjectモジュールの二重登録、出力先の重複・入れ子を拒否します。
+- 全Projectの生成・検証と、全出力先の既存ファイルとの衝突確認を終えてから書き出します。
+  書き込みはファイル単位でアトミックです。ディスク障害などに対するWorkspace全体のロールバックはありません。
+- Workspaceの `contents.xcworkspacedata` と各Projectの `project.xcproj` だけを更新します。
+  Scheme・ユーザー設定は保持し、一覧から外れたProjectの生成物は自動削除しません。
+
+Projectモジュール自身はローカルの `.pkl` ファイルが対象です。共通設定・テンプレートのPkl Package importは利用できます。
+Workspace内のProjectは一度のPkl評価を共有するため、`--property` と評価設定も共通です。
+この機能はProjectの集約と各Project内の依存に対応しています。**Projectをまたぐターゲット依存・リンクは未対応**です。
+共有Scheme、複数Projectを横断するTest Action、Workspace上の表示グループも生成しません。
+検証環境ではFrameworkの自動SchemeにTestsが含まれないため、スモークテストもTestsのビルドはターゲットを直接指定しています。
 
 ## 入力例
 
@@ -189,7 +281,7 @@ configuration名は完全一致・大文字小文字を区別します。XcodeGe
 `Dependency` は `target`、`link`（既定true）、`embed`（既定false）を持ちます。
 `unit-test-bundle` も `bundle.unit-test` の別名として受け付けます。
 ビルド順だけの依存には `link = false` を指定します。リンク対象はFrameworkのみ、埋め込み先はAppのみです。
-ホストアプリ付きテスト、UI Tests、SwiftPM依存、任意のBuild Script、Scheme・Workspaceの生成は未対応です。
+ホストアプリ付きテスト、UI Tests、SwiftPM依存、任意のBuild Script、Schemeの生成は未対応です。
 Xcodeの自動Schemeでビルドできますが、共有SchemeやTest Actionは生成していません。
 このプロトタイプの検証ではmacOSツールの実行とiOS App・Framework・Testsのビルドまで確認しています。
 Simulator上でのテスト実行は、検証環境のCoreSimulatorとXcodeのバージョン不一致により未確認です。
@@ -214,11 +306,18 @@ configuration、ID重複を確認します。
 Appleのデコーダーが無視する未知キーも、この検証では検出できません。
 `validate` の成功はビルド成功を保証しません。必要に応じて `xcodebuild` を併用してください。
 
+WorkspaceのPkl入力では、含まれる全Projectに同じ検証を適用します。
+既存 `.xcworkspace` の検証ではXMLを読み、全参照先の `project.xcproj` を検証します。
+`Group` と `group:` / `container:` / `absolute:` のパスに対応し、参照の重複・欠落を拒否します。
+旧形式の `project.pbxproj`、Project以外のファイル参照、ネストしたWorkspaceは検証対象外で、エラーにします。
+
 ## 構成とテスト
 
 ```text
 Pkl/Project.pkl             型付きの入力スキーマ
+Pkl/Workspace.pkl           複数Projectの集約とモジュールURIの付与
 Examples/Shared/            import可能な設定・テンプレート
+Examples/Workspace/         Framework + Testsを持つ複数Projectのサンプル
 Sources/XcprojPkl/          Pkl起動、継承解決、検証、xcproj変換
 Sources/XcprojPklCLI/       generate / validateコマンド
 Tests/XcprojPklTests/       Swift Testingによる回帰テスト
@@ -233,6 +332,9 @@ PKL_EXEC="$(command -v pkl)" swift test
 # 別ディレクトリへ生成し、macOSターゲットをビルド・実行する
 bash Scripts/smoke-test.sh
 
+# Workspace生成と、3つのFramework / Testsのビルド
+bash Scripts/workspace-smoke-test.sh
+
 # iOSサンプル：Frameworkリンク・埋め込みを確認
 swift run xcproj-pkl generate Examples/iOS/Project.pkl
 xcodebuild -project Examples/iOS/Demo.xcodeproj -scheme DemoApp \
@@ -240,10 +342,15 @@ xcodebuild -project Examples/iOS/Demo.xcodeproj -scheme DemoApp \
 ```
 
 Pkl統合テストは `PKL_EXEC` が未指定の場合はスキップされます。
+Workspaceの統合テストは一時ディレクトリに100個のProject.pklを用意し、`import*` でまとめて評価して、
+100プロジェクト・200ターゲットの生成・検証・再生成を確認します。
 生成する設定の継承規則は [Resolver.swift](Sources/XcprojPkl/Resolver.swift)、
 保存形式への変換は [Generator.swift](Sources/XcprojPkl/Generator.swift) に集約しています。
+Workspaceの集約は [WorkspaceGenerator.swift](Sources/XcprojPkl/WorkspaceGenerator.swift)、
+入力種別による振り分けは [GenerationPlan.swift](Sources/XcprojPkl/GenerationPlan.swift) が担当します。
 
 仕様の参照元：
 [XcodeGen ProjectSpec](https://github.com/yonaskolb/XcodeGen/blob/master/Docs/ProjectSpec.md)、
 [Pkl Language Reference](https://pkl-lang.org/main/current/language-reference/index.html)、
+[Pkl reflection API](https://github.com/apple/pkl/blob/0.33.0/stdlib/reflect.pkl)、
 [Apple xcode-project-format](https://github.com/apple/xcode-project-format)。

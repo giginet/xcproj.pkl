@@ -1,0 +1,3 @@
+amends "../../Shared/FrameworkProject.pkl"
+
+name = "Networking"

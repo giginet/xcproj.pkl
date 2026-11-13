@@ -1,0 +1,33 @@
+/// One workspace containing independently usable Project.pkl modules.
+open module xcproj.Workspace
+
+import "Project.pkl"
+import "pkl:reflect"
+
+kind: "workspace" = "workspace"
+schemaVersion: Int(isBetween(1, 1)) = 1
+name: String(!isEmpty)
+/// Relative to this Workspace.pkl. Project paths remain relative to their own modules.
+workspaceDir: String = "."
+/// Explicit imports or import*("Modules/**/Project.pkl"). Keys identify workspace entries.
+projects: Mapping<String, Project>
+
+output {
+  renderer = new JsonRenderer {}
+  value = new Dynamic {
+    kind = module.kind
+    schemaVersion = module.schemaVersion
+    name = module.name
+    workspaceDir = module.workspaceDir
+    projects = new Listing {
+      for (projectKey, projectValue in module.projects) {
+        new Dynamic {
+          key = projectKey
+          // Preserve the declaring module when a project is amended at the workspace level.
+          source = reflect.moduleOf(projectValue).uri
+          project = projectValue
+        }
+      }
+    }
+  }
+}

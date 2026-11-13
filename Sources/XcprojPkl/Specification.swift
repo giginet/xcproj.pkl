@@ -189,13 +189,13 @@ private struct AnyKey: CodingKey {
 }
 
 extension KeyedDecodingContainer {
-  fileprivate func rejectUnknownKeys(in decoder: any Decoder, allowed: [Key]) throws {
+  func rejectUnknownKeys(in decoder: any Decoder, allowed: [Key]) throws {
     let keys = try decoder.container(keyedBy: AnyKey.self).allKeys.map(\.stringValue)
     let unknown = Set(keys).subtracting(allowed.map(\.stringValue)).sorted()
     if !unknown.isEmpty {
       let path = decoder.codingPath.map(\.stringValue).joined(separator: ".")
       throw ProjectError(
-        "\(path.isEmpty ? "project" : path): unknown fields: \(unknown.joined(separator: ", "))")
+        "\(path.isEmpty ? "input" : path): unknown fields: \(unknown.joined(separator: ", "))")
     }
   }
 }

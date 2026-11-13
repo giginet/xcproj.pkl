@@ -9,16 +9,17 @@ public struct GeneratedProject: Sendable {
   /// Only project.xcproj is replaced. Schemes and other bundle contents are preserved.
   @discardableResult
   public func write() throws -> Bool {
+    try validateDestination()
+    return try writeIfChanged(data, to: destination.appendingPathComponent("project.xcproj"))
+  }
+
+  func validateDestination() throws {
     let manager = FileManager.default
     if manager.fileExists(atPath: destination.appendingPathComponent("project.pbxproj").path) {
       throw ProjectError(
         "Refusing to overwrite a legacy project containing project.pbxproj: \(destination.path)")
     }
-    let file = destination.appendingPathComponent("project.xcproj")
-    if let existing = try? Data(contentsOf: file), existing == data { return false }
-    try manager.createDirectory(at: destination, withIntermediateDirectories: true)
-    try data.write(to: file, options: .atomic)
-    return true
+    try validateOutputFile(destination.appendingPathComponent("project.xcproj"))
   }
 }
 
@@ -28,6 +29,11 @@ public struct ProjectGenerator: Sendable {
   public func compile(json: Data, specDirectory: URL, output: URL? = nil) throws -> GeneratedProject
   {
     let spec = try JSONDecoder().decode(ProjectSpec.self, from: json)
+    return try compile(spec: spec, specDirectory: specDirectory, output: output)
+  }
+
+  func compile(spec: ProjectSpec, specDirectory: URL, output: URL? = nil) throws -> GeneratedProject
+  {
     let resolved = try Resolver(project: spec, specDirectory: specDirectory).resolve()
     let destination = (output ?? resolved.root.appendingPathComponent(spec.name + ".xcodeproj"))
       .standardizedFileURL

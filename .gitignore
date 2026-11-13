@@ -2,4 +2,5 @@
 .swiftpm/
 .DS_Store
 Examples/**/*.xcodeproj/
+Examples/**/*.xcworkspace/
 Examples/**/build/

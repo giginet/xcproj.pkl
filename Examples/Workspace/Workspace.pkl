@@ -1,0 +1,5 @@
+amends "../../Pkl/Workspace.pkl"
+
+name = "Modular"
+// Adding another Modules/*/Project.pkl automatically adds another Xcode project.
+projects = import*("Modules/*/Project.pkl")
