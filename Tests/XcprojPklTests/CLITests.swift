@@ -154,10 +154,18 @@ struct NativeCLITests {
         let main = try String(contentsOf: root.appendingPathComponent("Main.pkl"), encoding: .utf8)
         #expect(
             main.contains(type == "workspace" ? "@xcproj/Workspace.pkl" : "@xcproj/Project.pkl"))
-        let relativeOutput =
-            "Output With Spaces/Custom.\(type == "workspace" ? "xcworkspace" : "xcodeproj")"
-        let destination = f.root.appendingPathComponent(relativeOutput)
-        let arguments = [root.path, "--output-path", relativeOutput]
+        let bundleName = type == "workspace" ? "Chosen Workspace" : "Chosen Project"
+        let oldName = type == "workspace" ? "Workspace" : "Core"
+        try Data(
+            main.replacingOccurrences(
+                of: "\nname = \"\(oldName)\"\n", with: "\nname = \"\(bundleName)\"\n"
+            ).utf8
+        )
+        .write(to: root.appendingPathComponent("Main.pkl"))
+        let relativeOutput = "Output With Spaces"
+        let destination = f.root.appendingPathComponent(relativeOutput).appendingPathComponent(
+            "\(bundleName).\(type == "workspace" ? "xcworkspace" : "xcodeproj")")
+        let arguments = [root.path, "--output-dir", relativeOutput]
         let validated = try cli(["validate"] + arguments, fixture: f, environment: environment)
         try #require(validated.status == 0, "\(validated.text)")
         #expect(validated.text.contains("1 projects, 2 targets"))
@@ -189,13 +197,14 @@ struct NativeCLITests {
             let standalone = try cli(
                 [
                     "generate", root.path, "--entry", "Projects/Core/Project.pkl",
-                    "--output-path", "Core.xcodeproj",
+                    "--output-dir", "Standalone Outputs",
                 ], fixture: f, environment: environment)
             #expect(standalone.status == 0, "\(standalone.text)")
             #expect(
                 try ProjectValidator.validate(
                     data: Data(
-                        contentsOf: f.root.appendingPathComponent("Core.xcodeproj/project.xcproj")))
+                        contentsOf: f.root.appendingPathComponent(
+                            "Standalone Outputs/Core.xcodeproj/project.xcproj")))
                     == 2)
         }
         let invoked = try String(contentsOf: calls, encoding: .utf8).split(separator: "\n")

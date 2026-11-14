@@ -248,7 +248,7 @@ struct NativePklTests {
             targets { ["app"] { name = "App"; type = "tool"; platform = "macOS"; configFiles { ["Release"] = "Alias.xcconfig" } } }
             """#
         let moved = try f.compile(
-            body, output: f.root.appendingPathComponent("Build/Moved.xcodeproj"))
+            body, outputDirectory: f.root.appendingPathComponent("Build"))
         let project = try XCSchema.Project(jsonRepresentation: moved.projects[0].data)
         guard case .group(let group) = project.topLevelReferences[0] else {
             Issue.record("Expected Configurations")
@@ -270,7 +270,7 @@ struct NativePklTests {
         try f.file("A & B <日本>/main.swift")
         let plan = try f.tool(
             #"sources { new { path = "A & B <日本>/main.swift"; kind = "file" } }"#,
-            output: f.root.appendingPathComponent("Build/Example.xcodeproj"))
+            outputDirectory: f.root.appendingPathComponent("Build"))
         let project = try XCSchema.Project(jsonRepresentation: plan.projects[0].data)
         guard case .fileReference(let file) = project.topLevelReferences[0] else {
             Issue.record("Expected file")
@@ -333,10 +333,10 @@ struct NativePklTests {
         expectFailure(containing: "key=value") {
             _ = try GenerationPlan.compile(source: source, properties: ["bad"])
         }
-        expectFailure(containing: ".xcodeproj") {
-            _ = try GenerationPlan.compile(
-                source: source, output: f.root.appendingPathComponent("wrong.txt"))
-        }
+        let plan = try GenerationPlan.compile(
+            source: source, outputDirectory: f.root.appendingPathComponent("Folder.with.dots"))
+        #expect(
+            plan.destination == f.root.appendingPathComponent("Folder.with.dots/Example.xcodeproj"))
     }
 
     @Test func externalPropertiesAreFrozenBeforeRenderingAndUserModuleIsNotReevaluated() throws {

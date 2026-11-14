@@ -36,6 +36,8 @@ targets {
 
 Use `import "@xcproj/Project.pkl" as X` to define reusable classes extending `X.Target` and reusable `X.Settings` objects. For a workspace, Main.pkl can amend `@xcproj/Workspace.pkl` and import local Project modules. The CLI defaults to `<dir>/Main.pkl`; `--entry` selects another module relative to `<dir>`. Run the resulting local entry through the matching Swift CLI; evaluating the public schemas produces an intermediate Snapshot, not the final Xcode project.
 
+`xcprojgen generate <dir> --output-dir <directory>` writes `<directory>/<name>.xcodeproj` or `<directory>/<name>.xcworkspace`, according to the selected entry's Pkl type and `name`. Workspace members retain their own project output directories. Without `--output-dir`, `projectDir` or `workspaceDir` determines the output directory.
+
 For checkout-based development, a consumer may use a local dependency instead:
 
 ```pkl

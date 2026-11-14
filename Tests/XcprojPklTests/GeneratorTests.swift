@@ -92,7 +92,9 @@ private func request(_ id: String, _ base: [String: String], _ path: String) -> 
     try f.symlink("Alias", to: "Actual")
     let requests = [
         request(
-            "bundle", ["kind": "uri", "uri": f.root.absoluteString], "Alias/Example.xcodeproj"),
+            "bundle",
+            ["kind": "uri", "uri": f.root.appendingPathComponent("Alias").absoluteString],
+            "Example.xcodeproj"),
         request("file", ["kind": "request", "id": "bundle", "location": "self"], "project.xcproj"),
     ]
     let m = try manifest(f, paths: requests)
@@ -100,16 +102,14 @@ private func request(_ id: String, _ base: [String: String], _ path: String) -> 
     #expect(
         facts.paths["bundle"]?.absolutePath
             == f.root.appendingPathComponent("Actual/Example.xcodeproj").path)
-    let moved = try HostFacts.observe(m, output: f.root.appendingPathComponent("Moved.xcodeproj"))
+    let moved = try HostFacts.observe(
+        m, outputDirectory: f.root.appendingPathComponent("Moved.output"))
     #expect(
         moved.paths["file"]?.absolutePath
-            == f.root.appendingPathComponent("Moved.xcodeproj/project.xcproj").path)
+            == f.root.appendingPathComponent("Moved.output/Example.xcodeproj/project.xcproj").path)
     #expect(
         !FileManager.default.fileExists(
-            atPath: f.root.appendingPathComponent("Moved.xcodeproj").path))
-    expectFailure(containing: ".xcodeproj") {
-        _ = try HostFacts.observe(m, output: f.root.appendingPathComponent("Bad.txt"))
-    }
+            atPath: f.root.appendingPathComponent("Moved.output").path))
 }
 @Test func malformedPathGraphFailsBeforeRendering() throws {
     let f = try Fixture()

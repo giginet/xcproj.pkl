@@ -34,11 +34,12 @@ swift run xcprojgen validate MyWorkspace
 swift run xcprojgen generate MyWorkspace
 
 # Workspaceの出力先を指定。相対パスはCLI実行時の作業ディレクトリ基準。
-swift run xcprojgen validate MyWorkspace --output-path /tmp/MyWorkspace.xcworkspace
-swift run xcprojgen generate MyWorkspace --output-path /tmp/MyWorkspace.xcworkspace
+swift run xcprojgen validate MyWorkspace --output-dir /tmp/generated
+swift run xcprojgen generate MyWorkspace --output-dir /tmp/generated
+# => /tmp/generated/Workspace.xcworkspace
 
 # 既存の生成物を読み取り専用で検証。Pklは不要。
-swift run xcprojgen validate /tmp/MyWorkspace.xcworkspace
+swift run xcprojgen validate /tmp/generated/Workspace.xcworkspace
 
 # Pklのexternal property。複数回指定できます。
 swift run xcprojgen generate MyWorkspace --property flavor=debug
@@ -64,25 +65,27 @@ MyWorkspace/
 別の入口を使う場合は、ディレクトリ基準の `--entry` を明示します。既定の `Main.pkl` が存在しない場合はエラーになり、`Project.pkl` や `Workspace.pkl` の自動探索はしません。
 
 ```sh
-swift run xcprojgen generate MyWorkspace --entry Projects/Core/Project.pkl --output-path /tmp/Core.xcodeproj
+swift run xcprojgen generate MyWorkspace --entry Projects/Core/Project.pkl --output-dir /tmp/generated
 swift run xcprojgen validate MyWorkspace --entry Projects/Core/Project.pkl
 ```
 
 `validate` / `generate` は最寄りの `PklProject` に対して `pkl project resolve` を実行してから評価します。`validate`も依存lockfileの `PklProject.deps.json` を作成・更新することがありますが、生成するxcworkspace/xcodeprojは書き込みません。lockfileは利用側のリポジトリで管理してください。
 
-`--output-path`（短縮形 `-o`）は出力bundle自体のパスです。入口がWorkspace型なら `.xcworkspace`、Project型なら `.xcodeproj` を指定します。Workspace内の各Projectはそれぞれの `projectDir` に出力し、Workspaceからの参照を調整します。省略時はWorkspaceの `workspaceDir/name.xcworkspace`、Projectの `projectDir/name.xcodeproj` です。互換性のため `--output` も受け付けます。
+`--output-dir`（短縮形 `-o`）は出力先ディレクトリです。バンドル名と拡張子は入口のPklが決めます。Workspace型で `name = "App"` なら `<output-dir>/App.xcworkspace`、Project型なら `<output-dir>/App.xcodeproj` を生成します。Swift側でバンドル名・拡張子を指定する処理や、出力指定の拡張子チェックはありません。`--entry`を指定した場合も、選択したPklの名前と型で決まります。
+
+Workspace内の各Projectはそれぞれの `projectDir` に出力し、Workspaceからの参照を調整します。`--output-dir`省略時はWorkspaceの `workspaceDir/name.xcworkspace`、Projectの `projectDir/name.xcodeproj` です。相対的な出力先ディレクトリはCLIの作業ディレクトリ基準です。
 
 `Project.pkl` / `Workspace.pkl` の直接指定と、既存 `.xcworkspace` / `.xcodeproj` / `project.xcproj` の検証にも対応しています。
 
 ```sh
 swift run xcprojgen validate Examples/Workspace --entry Workspace.pkl
-swift run xcprojgen generate Examples/Tool/Project.pkl --output-path /tmp/Tool.xcodeproj
-swift run xcprojgen validate /tmp/Tool.xcodeproj
+swift run xcprojgen generate Examples/Tool/Project.pkl --output-dir /tmp/generated
+swift run xcprojgen validate /tmp/generated/Tool.xcodeproj
 ```
 
 `--pkl /path/to/pkl`は `doctor` / `validate` / `generate` で使えます。探索順は `--pkl`、`PKL_EXEC`、`PATH` です。`PKL_EXEC`は引数を含まない実行ファイルのパスです。`doctor`は実行ファイルとバージョンを表示し、未導入・実行失敗・対応外バージョンの場合は非ゼロで終了します。未導入・対応外の場合は [Pkl公式Installationガイド](https://pkl-lang.org/main/current/pkl-cli/index.html#installation) を案内します。自動インストールは行いません。
 
-`--pkl`・`--property`・`--entry`・`--output-path`は既存の生成物の検証には指定できません。`xcproj.internal.`というproperty名は内部処理用に予約しています。
+`--pkl`・`--property`・`--entry`・`--output-dir`は既存の生成物の検証には指定できません。`xcproj.internal.`というproperty名は内部処理用に予約しています。
 
 ## Pkl Projectと配布パッケージ
 
@@ -249,7 +252,7 @@ swift run xcprojgen validate Examples/Workspace/Modular.xcworkspace
 swift run xcprojgen generate Examples/Workspace/Modules/Catalog/Project.pkl
 ```
 
-Projectは自分の`projectDir/name.xcodeproj`、Workspaceは`workspaceDir/name.xcworkspace`へ生成します。Workspace入力に対する`--output-path`はWorkspaceだけを移動します。
+Projectは自分の`projectDir/name.xcodeproj`、Workspaceは`workspaceDir/name.xcworkspace`へ生成します。Workspace入力に対する`--output-dir`はWorkspaceの出力先ディレクトリを変更し、名前はWorkspaceの`name`から決まります。
 
 Workspace内でimportしたProjectをamendしても、パスは元のProject.pklがあるディレクトリを基準にします。モジュール自体がsymlinkの場合もcanonicalなモジュールの親を使い、単独生成とWorkspace経由で統一します。Projectモジュールはローカルのfile URIに限定しています。共有テンプレート・設定にはPklのimportを使えます。
 
@@ -290,7 +293,7 @@ Sources/XcprojPkl/PklTool.swift  Pklの評価・依存解決・バージョン�
 
 Swift側に残すのはCLI、Pklプロセスの起動、OS上のパス情報、Apple XCSchemaと既存成果物の参照検証、ファイル書き込みです。Targetの継承・設定の合成・ID計算・JSON/XML構築はPkl側にあります。既存成果物の検証はPklを使わないため、SwiftのProjectValidator / WorkspaceValidatorが担当します。
 
-Swiftライブラリからは `PklTool` を共通の実行窓口として使います。生成計画は `GenerationPlan.compile(source:tool:properties:output:)` で作成します。
+Swiftライブラリからは `PklTool` を共通の実行窓口として使います。生成計画は `GenerationPlan.compile(source:tool:properties:outputDirectory:)` で作成します。
 
 内部PklはSwiftPMのresource bundleに含めています。実行ファイルを移動する場合は`xcproj-pkl_PklRuntimeResources.bundle`も同じディレクトリへ配置してください。
 

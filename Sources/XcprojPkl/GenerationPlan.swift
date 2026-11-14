@@ -28,15 +28,16 @@ public struct GenerationPlan: Sendable {
         }
     }
 
+    /// outputDirectory replaces the root bundle parent; its name comes from Pkl.
     public static func compile(
         source: URL, tool: PklTool = PklTool(), properties: [String] = [],
-        output: URL? = nil
+        outputDirectory: URL? = nil
     ) throws -> GenerationPlan {
         try validateProperties(properties)
         // Canonicalize the entry before Pkl resolves its own relative imports.
         let snapshot = try tool.evaluate(canonicalFileURL(source), properties: properties)
         let manifest = try JSONDecoder().decode(InputManifest.self, from: snapshot)
-        let facts = try HostFacts.observe(manifest, output: output)
+        let facts = try HostFacts.observe(manifest, outputDirectory: outputDirectory)
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(
             "xcproj-render-\(UUID())")
         try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)

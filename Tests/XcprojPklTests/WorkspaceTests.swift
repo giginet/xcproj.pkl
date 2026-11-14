@@ -18,7 +18,7 @@ struct NativeWorkspaceTests {
             #"["a"] = import("A & B/Project.pkl"); ["b"] = import("Other/Project.pkl")"#)
         let standalone = try GenerationPlan.compile(source: source)
         let plan = try GenerationPlan.compile(
-            source: entry, output: f.root.appendingPathComponent("Output/Modular.xcworkspace"))
+            source: entry, outputDirectory: f.root.appendingPathComponent("Output"))
         #expect(plan.projectCount == 2 && plan.targetCount == 2)
         #expect(plan.projects[0].data == standalone.projects[0].data)
         #expect(plan.projects[0].destination == standalone.projects[0].destination)
@@ -28,7 +28,10 @@ struct NativeWorkspaceTests {
         #expect(!FileManager.default.fileExists(atPath: plan.destination.path))
         try plan.write()
         #expect(try WorkspaceValidator.validate(plan.destination).projectCount == 2)
-        #expect(try !GenerationPlan.compile(source: entry, output: plan.destination).write())
+        #expect(
+            try !GenerationPlan.compile(
+                source: entry, outputDirectory: plan.destination.deletingLastPathComponent()
+            ).write())
     }
 
     @Test func projectAmendmentRetainsOriginalModuleRoot() throws {
@@ -129,7 +132,7 @@ struct NativeWorkspaceTests {
         expectFailure(containing: "Nested workspace/project output paths") {
             _ = try GenerationPlan.compile(
                 source: entry,
-                output: f.root.appendingPathComponent("Shared/Example.xcodeproj/Nested.xcworkspace")
+                outputDirectory: f.root.appendingPathComponent("Shared/Example.xcodeproj")
             )
         }
         try f.directory("Dest")

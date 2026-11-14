@@ -51,13 +51,13 @@ final class Fixture {
                 + "\nname = \"Example\"\nidNamespace = \"com.example\"\n"
                 + rest.joined(separator: "\n"))
     }
-    func compile(_ body: String, output: URL? = nil) throws -> GenerationPlan {
-        try GenerationPlan.compile(source: project(body), output: output)
+    func compile(_ body: String, outputDirectory: URL? = nil) throws -> GenerationPlan {
+        try GenerationPlan.compile(source: project(body), outputDirectory: outputDirectory)
     }
-    func tool(_ extra: String = "", output: URL? = nil) throws -> GenerationPlan {
+    func tool(_ extra: String = "", outputDirectory: URL? = nil) throws -> GenerationPlan {
         try compile(
             "targets { [\"app\"] { name = \"App\"; type = \"tool\"; platform = \"macOS\"; \(extra) } }",
-            output: output)
+            outputDirectory: outputDirectory)
     }
     func workspace(
         _ entries: String = #"["a"] = import("A/Project.pkl"); ["b"] = import("B/Project.pkl")"#

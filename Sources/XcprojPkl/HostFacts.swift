@@ -69,16 +69,11 @@ struct HostFacts: Encodable {
     let protocolVersion = 1
     let paths: [String: PathFact]
 
-    static func observe(_ manifest: InputManifest, output: URL? = nil) throws -> HostFacts {
+    static func observe(_ manifest: InputManifest, outputDirectory: URL? = nil) throws -> HostFacts
+    {
         try manifest.validate()
         let requests = Dictionary(uniqueKeysWithValues: manifest.paths.map { ($0.id, $0) })
         let root = manifest.artifacts.first { $0.id == manifest.rootArtifactId }!
-        if let output {
-            let expected = root.kind == .project ? "xcodeproj" : "xcworkspace"
-            guard output.pathExtension == expected else {
-                throw ProjectError("Output must be a .\(expected) directory")
-            }
-        }
         var facts: [String: PathFact] = [:]
         var visiting: [String] = []
         func resolve(_ id: String) throws -> PathFact {
@@ -107,8 +102,8 @@ struct HostFacts: Encodable {
                 base = location == .parent ? parentURL.deletingLastPathComponent() : parentURL
             }
             let resolved: URL
-            if id == root.bundlePathId, let output {
-                resolved = output
+            if id == root.bundlePathId, let outputDirectory {
+                resolved = outputDirectory.appendingPathComponent(request.path)
             } else if request.path.isEmpty {
                 resolved = base
             } else {

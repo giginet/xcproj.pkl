@@ -37,7 +37,7 @@ struct EvaluationOptions: ParsableArguments {
         try GenerationPlan.validateProperties(property)
     }
 
-    func plan(_ source: URL, output: URL? = nil) throws -> GenerationPlan {
+    func plan(_ source: URL, outputDirectory: URL? = nil) throws -> GenerationPlan {
         // Match Pkl's upward project discovery, including for direct module input.
         var directory = source.resolvingSymlinksInPath().deletingLastPathComponent()
         while true {
@@ -53,18 +53,18 @@ struct EvaluationOptions: ParsableArguments {
         }
         return try GenerationPlan.compile(
             source: source, tool: runtime.tool, properties: property,
-            output: output)
+            outputDirectory: outputDirectory)
     }
 }
 
 struct OutputOptions: ParsableArguments {
     @Option(
-        name: [.customShort("o"), .customLong("output-path"), .customLong("output")],
+        name: [.customShort("o"), .customLong("output-dir")],
         help:
-            "Destination .xcworkspace or .xcodeproj path, according to the entry module's type. Relative to the current directory. Workspace members keep their project output paths."
-    ) var outputPath: String?
+            "Destination directory. The bundle name and extension come from the Pkl entry. Relative to the current directory. Workspace members keep their project output paths."
+    ) var outputDir: String?
 
-    var url: URL? { outputPath.map { URL(fileURLWithPath: $0).standardizedFileURL } }
+    var url: URL? { outputDir.map { URL(fileURLWithPath: $0).standardizedFileURL } }
 }
 
 struct EntryOptions: ParsableArguments {
@@ -138,7 +138,7 @@ struct Generate: ParsableCommand {
     mutating func run() throws {
         let source = try entryModule(
             URL(fileURLWithPath: dir).standardizedFileURL, entry: entry.entry)
-        let generated = try evaluation.plan(source, output: output.url)
+        let generated = try evaluation.plan(source, outputDirectory: output.url)
         let changed = try generated.write()
         print(
             "\(changed ? "Generated" : "Unchanged") \(generated.destination.path) (\(generated.projectCount) projects, \(generated.targetCount) targets)"
@@ -162,11 +162,11 @@ struct Validate: ParsableCommand {
         let generatedInput = ["xcworkspace", "xcodeproj", "xcproj"].contains(input.pathExtension)
         if generatedInput,
             evaluation.runtime.pkl != nil || !evaluation.property.isEmpty
-                || output.outputPath != nil
+                || output.outputDir != nil
                 || entry.entry != nil
         {
             throw ValidationError(
-                "--pkl, --property, --entry, and --output-path apply only to Pkl input")
+                "--pkl, --property, --entry, and --output-dir apply only to Pkl input")
         }
         let count: Int
         let projectCount: Int
@@ -183,7 +183,7 @@ struct Validate: ParsableCommand {
             count = try ProjectValidator.validate(data: Data(contentsOf: file))
         default:
             let plan = try evaluation.plan(
-                entryModule(input, entry: entry.entry), output: output.url)
+                entryModule(input, entry: entry.entry), outputDirectory: output.url)
             count = plan.targetCount
             projectCount = plan.projectCount
         }
