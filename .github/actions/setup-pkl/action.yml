@@ -1,0 +1,33 @@
+name: Set up Pkl
+description: Install the pinned native Pkl CLI and enable Pkl integration tests.
+runs:
+  using: composite
+  steps:
+    - name: Install Pkl 0.33.0
+      shell: bash
+      run: |
+        set -euo pipefail
+        case "$RUNNER_OS/$RUNNER_ARCH" in
+          macOS/ARM64)
+            asset=pkl-macos-aarch64
+            checksum=e39c157df0f00a35d34b46270a768784edcaf509aafbf743849b27b4c83ef83b
+            ;;
+          Linux/X64)
+            asset=pkl-linux-amd64
+            checksum=b9a6ddea6b382b7d4db4cf78e77aa3858e0c8a7e02939d2ba298574b5d1fcc69
+            ;;
+          *)
+            printf 'Unsupported Pkl runner: %s/%s\n' "$RUNNER_OS" "$RUNNER_ARCH" >&2
+            exit 1
+            ;;
+        esac
+        install_dir="$RUNNER_TEMP/pkl-0.33.0"
+        mkdir -p "$install_dir"
+        curl --fail --location --retry 3 \
+          "https://github.com/apple/pkl/releases/download/0.33.0/$asset" \
+          --output "$install_dir/pkl"
+        printf '%s  %s\n' "$checksum" "$install_dir/pkl" | shasum -a 256 --check
+        chmod +x "$install_dir/pkl"
+        "$install_dir/pkl" --version
+        printf '%s\n' "$install_dir" >> "$GITHUB_PATH"
+        printf 'PKL_EXEC=%s/pkl\n' "$install_dir" >> "$GITHUB_ENV"

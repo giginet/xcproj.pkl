@@ -15,7 +15,7 @@ struct Xcprojgen: ParsableCommand {
 enum ToolDefaults {
     static let version = "0.1.0"
     static let packageURI =
-        "package://github.com/giginet/xcproj.pkl/releases/download/v\(version)/xcproj@\(version)"
+        "package://github.com/giginet/xcproj.pkl/releases/download/pkl%2F\(version)/xcproj@\(version)"
 }
 
 struct PklOptions: ParsableArguments {
