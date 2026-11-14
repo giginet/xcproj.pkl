@@ -2,107 +2,110 @@ import Foundation
 
 /// Shared process boundary for evaluation, dependency resolution, and diagnostics.
 public struct PklTool: Sendable {
-  public static let minimumVersion = "0.33.0"
-  public static let installationGuide =
-    "https://pkl-lang.org/main/current/pkl-cli/index.html#installation"
+    public static let minimumVersion = "0.33.0"
+    public static let installationGuide =
+        "https://pkl-lang.org/main/current/pkl-cli/index.html#installation"
 
-  public let executable: String
+    public let executable: String
 
-  public init(executable: String? = nil) {
-    self.executable = executable ?? ProcessInfo.processInfo.environment["PKL_EXEC"] ?? "pkl"
-  }
-
-  public struct Installation: Sendable {
-    public let executable: URL
-    public let version: String
-    public let isSupported: Bool
-  }
-
-  public func installation() throws -> Installation {
-    let url = try executableURL()
-    let data = try run(["--version"], operation: "version check")
-    let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-    let regex = try NSRegularExpression(
-      pattern:
-        #"^Pkl (([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)(?:\s|$)"#)
-    guard let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-      let versionRange = Range(match.range(at: 1), in: text),
-      let majorRange = Range(match.range(at: 2), in: text),
-      let minorRange = Range(match.range(at: 3), in: text),
-      let patchRange = Range(match.range(at: 4), in: text),
-      let major = Int(text[majorRange]), let minor = Int(text[minorRange]),
-      let patch = Int(text[patchRange])
-    else { throw ProjectError("Could not parse Pkl version: \(text)") }
-    let supported =
-      major > 0 || minor > 33
-      || (minor == 33 && (patch > 0 || match.range(at: 5).location == NSNotFound))
-    return Installation(
-      executable: url, version: String(text[versionRange]), isSupported: supported)
-  }
-
-  public func resolveProject(at directory: URL, properties: [String] = []) throws {
-    _ = try run(
-      ["project", "resolve", "--working-dir", directory.path]
-        + properties.flatMap { ["--property", $0] } + [directory.path],
-      workingDirectory: directory, operation: "dependency resolution")
-  }
-
-  private func executableURL() throws -> URL {
-    let manager = FileManager.default
-    if executable.contains("/") {
-      let url = URL(fileURLWithPath: executable).standardizedFileURL
-      guard manager.isExecutableFile(atPath: url.path) else { throw unavailable() }
-      return url
+    public init(executable: String? = nil) {
+        self.executable = executable ?? ProcessInfo.processInfo.environment["PKL_EXEC"] ?? "pkl"
     }
-    let paths = (ProcessInfo.processInfo.environment["PATH"] ?? "").components(separatedBy: ":")
-    guard
-      let url = paths.map({ URL(fileURLWithPath: $0).appendingPathComponent(executable) })
-        .first(where: { manager.isExecutableFile(atPath: $0.path) })
-    else { throw unavailable() }
-    return url
-  }
 
-  private func unavailable() -> ProjectError {
-    ProjectError(
-      "Pkl executable not found or not executable: \(executable).\n"
-        + "Install Pkl \(Self.minimumVersion)+, set PKL_EXEC, or pass --pkl /path/to/pkl.\n"
-        + "Installation: \(Self.installationGuide)")
-  }
+    public struct Installation: Sendable {
+        public let executable: URL
+        public let version: String
+        public let isSupported: Bool
+    }
 
-  func run(_ arguments: [String], workingDirectory: URL? = nil, operation: String) throws -> Data {
-    let url = try executableURL()
-    let manager = FileManager.default
-    let temporary = manager.temporaryDirectory.appendingPathComponent(
-      "xcprojgen-pkl-\(UUID().uuidString)")
-    try manager.createDirectory(at: temporary, withIntermediateDirectories: true)
-    defer { try? manager.removeItem(at: temporary) }
-    let out = temporary.appendingPathComponent("stdout")
-    let err = temporary.appendingPathComponent("stderr")
-    manager.createFile(atPath: out.path, contents: nil)
-    manager.createFile(atPath: err.path, contents: nil)
-    let output = try FileHandle(forWritingTo: out)
-    let errors = try FileHandle(forWritingTo: err)
-    defer {
-      try? output.close()
-      try? errors.close()
+    public func installation() throws -> Installation {
+        let url = try executableURL()
+        let data = try run(["--version"], operation: "version check")
+        let text = String(decoding: data, as: UTF8.self).trimmingCharacters(
+            in: .whitespacesAndNewlines)
+        let regex = try NSRegularExpression(
+            pattern:
+                #"^Pkl (([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)(?:\s|$)"#
+        )
+        guard let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+            let versionRange = Range(match.range(at: 1), in: text),
+            let majorRange = Range(match.range(at: 2), in: text),
+            let minorRange = Range(match.range(at: 3), in: text),
+            let patchRange = Range(match.range(at: 4), in: text),
+            let major = Int(text[majorRange]), let minor = Int(text[minorRange]),
+            let patch = Int(text[patchRange])
+        else { throw ProjectError("Could not parse Pkl version: \(text)") }
+        let supported =
+            major > 0 || minor > 33
+            || (minor == 33 && (patch > 0 || match.range(at: 5).location == NSNotFound))
+        return Installation(
+            executable: url, version: String(text[versionRange]), isSupported: supported)
     }
-    let process = Process()
-    process.executableURL = url
-    process.currentDirectoryURL = workingDirectory
-    process.arguments = arguments
-    process.standardOutput = output
-    process.standardError = errors
-    do { try process.run() } catch {
-      throw ProjectError("Could not run Pkl at \(url.path): \(error.localizedDescription)")
+
+    public func resolveProject(at directory: URL, properties: [String] = []) throws {
+        _ = try run(
+            ["project", "resolve", "--working-dir", directory.path]
+                + properties.flatMap { ["--property", $0] } + [directory.path],
+            workingDirectory: directory, operation: "dependency resolution")
     }
-    process.waitUntilExit()
-    guard process.terminationStatus == 0 else {
-      let diagnostic = String(decoding: try Data(contentsOf: err), as: UTF8.self)
-      let standardOutput = String(decoding: try Data(contentsOf: out), as: UTF8.self)
-      throw ProjectError(
-        "Pkl \(operation) failed (exit \(process.terminationStatus)):\n\(diagnostic)\(standardOutput)"
-      )
+
+    private func executableURL() throws -> URL {
+        let manager = FileManager.default
+        if executable.contains("/") {
+            let url = URL(fileURLWithPath: executable).standardizedFileURL
+            guard manager.isExecutableFile(atPath: url.path) else { throw unavailable() }
+            return url
+        }
+        let paths = (ProcessInfo.processInfo.environment["PATH"] ?? "").components(separatedBy: ":")
+        guard
+            let url = paths.map({ URL(fileURLWithPath: $0).appendingPathComponent(executable) })
+                .first(where: { manager.isExecutableFile(atPath: $0.path) })
+        else { throw unavailable() }
+        return url
     }
-    return try Data(contentsOf: out)
-  }
+
+    private func unavailable() -> ProjectError {
+        ProjectError(
+            "Pkl executable not found or not executable: \(executable).\n"
+                + "Install Pkl \(Self.minimumVersion)+, set PKL_EXEC, or pass --pkl /path/to/pkl.\n"
+                + "Installation: \(Self.installationGuide)")
+    }
+
+    func run(_ arguments: [String], workingDirectory: URL? = nil, operation: String) throws -> Data
+    {
+        let url = try executableURL()
+        let manager = FileManager.default
+        let temporary = manager.temporaryDirectory.appendingPathComponent(
+            "xcprojgen-pkl-\(UUID().uuidString)")
+        try manager.createDirectory(at: temporary, withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: temporary) }
+        let out = temporary.appendingPathComponent("stdout")
+        let err = temporary.appendingPathComponent("stderr")
+        manager.createFile(atPath: out.path, contents: nil)
+        manager.createFile(atPath: err.path, contents: nil)
+        let output = try FileHandle(forWritingTo: out)
+        let errors = try FileHandle(forWritingTo: err)
+        defer {
+            try? output.close()
+            try? errors.close()
+        }
+        let process = Process()
+        process.executableURL = url
+        process.currentDirectoryURL = workingDirectory
+        process.arguments = arguments
+        process.standardOutput = output
+        process.standardError = errors
+        do { try process.run() } catch {
+            throw ProjectError("Could not run Pkl at \(url.path): \(error.localizedDescription)")
+        }
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            let diagnostic = String(decoding: try Data(contentsOf: err), as: UTF8.self)
+            let standardOutput = String(decoding: try Data(contentsOf: out), as: UTF8.self)
+            throw ProjectError(
+                "Pkl \(operation) failed (exit \(process.terminationStatus)):\n\(diagnostic)\(standardOutput)"
+            )
+        }
+        return try Data(contentsOf: out)
+    }
 }

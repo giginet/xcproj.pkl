@@ -1,0 +1,18 @@
+{
+    "description": "Format changed Swift files with the repository's four-space swift-format configuration.",
+    "hooks": {
+        "PostToolUse": [
+            {
+                "matcher": "^(Bash|apply_patch|Write|Edit)$",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "/usr/bin/python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/format-swift.py\"",
+                        "timeout": 30,
+                        "statusMessage": "Formatting changed Swift files"
+                    }
+                ]
+            }
+        ]
+    }
+}

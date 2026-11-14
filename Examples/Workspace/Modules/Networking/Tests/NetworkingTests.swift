@@ -2,5 +2,5 @@ import Networking
 import Testing
 
 @Test func networkTimeoutIsConfigured() {
-  #expect(Networking.defaultTimeout == 30)
+    #expect(Networking.defaultTimeout == 30)
 }

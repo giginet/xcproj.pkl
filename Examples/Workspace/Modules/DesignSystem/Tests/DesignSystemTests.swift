@@ -2,5 +2,5 @@ import DesignSystem
 import Testing
 
 @Test func spacingIsConfigured() {
-  #expect(DesignSystem.spacing == 8)
+    #expect(DesignSystem.spacing == 8)
 }

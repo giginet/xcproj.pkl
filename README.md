@@ -307,3 +307,16 @@ PKL_EXEC="$(command -v pkl)" bash Scripts/workspace-smoke-test.sh
 Pklを利用する統合テストは`PKL_EXEC`がない場合skipされます。統合テストではネイティブ継承、設定優先度、symlink、100 Projects / 200 Targets、Pkl起動回数、配布先へのresource移動を確認します。Swiftのみのテストは既存形式の検証とOS・出力制御を確認します。
 
 共有Schemeはまだ生成しないため、WorkspaceサンプルのTestsはProjectのTargetを直接指定してビルドします。Apple CLIは検証環境では`xcrun xcodeproj`です。
+
+## Swiftの整形
+
+`xcrun swift-format`を使い、インデントは `.swift-format` で4スペースに指定しています。`init` が作成するSwiftソースも4スペースです。
+
+```sh
+git ls-files -z -- '*.swift' | xargs -0 xcrun swift-format format --in-place --configuration .swift-format
+git ls-files -z -- '*.swift' | xargs -0 xcrun swift-format lint --strict --configuration .swift-format
+```
+
+`.codex/hooks.json` の `PostToolUse` hookは、編集・パッチ・シェルコマンドの完了後に変更されたSwiftファイルを整形します。対象はstaged・unstaged・未追跡のSwiftファイルで、Gitのignore対象とsymlinkは含めません。ファイルを自動でstageすることはありません。
+
+初回利用時はCodexの `/hooks`（デスクトップアプリではSettings > Hooks）で、このリポジトリのhookを確認して信頼してください。新規・変更されたhookは信頼されるまで実行されません。[公式Hooks仕様](https://learn.chatgpt.com/docs/hooks)

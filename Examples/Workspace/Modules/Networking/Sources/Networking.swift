@@ -1,3 +1,3 @@
 public enum Networking {
-  public static let defaultTimeout = 30
+    public static let defaultTimeout = 30
 }

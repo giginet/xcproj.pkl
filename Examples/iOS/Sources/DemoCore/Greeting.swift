@@ -1,3 +1,3 @@
 public enum Greeting {
-  public static let message = "Hello from DemoCore"
+    public static let message = "Hello from DemoCore"
 }
