@@ -36,7 +36,6 @@ function target(p: Model, prefix: String, k: String, t: Model.Target): W.TargetI
 
 function project(p: Model, k: String): W.ProjectInput = new {
   key = k
-  name = p.name
   idNamespace = p.idNamespace
   sourcePathId = "\(projectId(k)):module"
   rootPathId = "\(projectId(k)):root"
@@ -73,7 +72,6 @@ function projectPaths(p: Model, k: String): List<W.PathRequest> =
 
 function single(p: Model): W.Snapshot = new {
   kind = "project"
-  entrySourceUri = reflect.moduleOf(p).uri
   rootArtifactId = projectId("project")
   projects = List(project(p, "project"))
   paths = projectPaths(p, "project")
@@ -84,16 +82,8 @@ function workspace(label: String, directory: String, source: String, entries: Ma
   let (keys = entries.toMap().keys.toList().sort())
   new {
     kind = "workspace"
-    entrySourceUri = source
     rootArtifactId = "workspace"
     projects = keys.map((k) -> project(entries[k], k))
-    workspace = new {
-      name = label
-      sourcePathId = "workspace:module"
-      rootPathId = "workspace:root"
-      artifactId = "workspace"
-      projectKeys = keys
-    }
     paths = keys.flatMap((k) -> projectPaths(entries[k], k)) + List(
       path("workspace:module", uri(source), "", "file", true, "Workspace module"),
       path("workspace:root", ref("workspace:module", "parent"), directory, "directory", true, "workspaceDir"),

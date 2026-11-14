@@ -6,10 +6,27 @@ public struct PklTool: Sendable {
     public static let installationGuide =
         "https://pkl-lang.org/main/current/pkl-cli/index.html#installation"
 
-    public let executable: String
+    private let executable: String
 
     public init(executable: String? = nil) {
         self.executable = executable ?? ProcessInfo.processInfo.environment["PKL_EXEC"] ?? "pkl"
+    }
+
+    public func evaluate(_ source: URL, properties: [String] = [], expression: String? = nil) throws
+        -> Data
+    {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: source.path, isDirectory: &isDirectory),
+            !isDirectory.boolValue
+        else { throw ProjectError("Pkl input: file does not exist: \(source.path)") }
+        return try run(
+            [
+                "eval", "--format", "json", "--timeout", "60",
+                "--working-dir", source.deletingLastPathComponent().path,
+            ]
+                + properties.flatMap { ["--property", $0] }
+                + (expression.map { ["--expression", $0] } ?? []) + [source.path],
+            workingDirectory: source.deletingLastPathComponent(), operation: "evaluation")
     }
 
     public struct Installation: Sendable {
@@ -71,7 +88,8 @@ public struct PklTool: Sendable {
                 + "Installation: \(Self.installationGuide)")
     }
 
-    func run(_ arguments: [String], workingDirectory: URL? = nil, operation: String) throws -> Data
+    private func run(_ arguments: [String], workingDirectory: URL? = nil, operation: String) throws
+        -> Data
     {
         let url = try executableURL()
         let manager = FileManager.default

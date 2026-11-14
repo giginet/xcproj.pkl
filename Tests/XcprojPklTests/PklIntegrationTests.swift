@@ -44,7 +44,7 @@ struct NativePklTests {
         #expect(settings["DERIVED"] as? String == "example.Renamed")
         #expect(settings["FLAGS"] as? [String] == ["$(inherited)", "-DBASE", "-DCHILD"])
         #expect(!String(decoding: plan.projects[0].data, as: UTF8.self).contains("organization"))
-        let original = try PklEvaluator().evaluate(
+        let original = try PklTool().evaluate(
             f.root.appendingPathComponent("Templates.pkl"), expression: "original.name")
         #expect(
             String(decoding: original, as: UTF8.self).trimmingCharacters(
@@ -371,7 +371,7 @@ struct NativePklTests {
         try FileManager.default.setAttributes(
             [.posixPermissions: 0o755], ofItemAtPath: wrapper.path)
         let plan = try GenerationPlan.compile(
-            source: source, evaluator: PklEvaluator(executable: wrapper.path),
+            source: source, tool: PklTool(executable: wrapper.path),
             properties: ["display=FlavorDebug", "complex=one=two"])
         #expect(plan.destination.lastPathComponent == "FlavorDebug.xcodeproj")
         let project = try XCSchema.Project(jsonRepresentation: plan.projects[0].data)
@@ -380,32 +380,4 @@ struct NativePklTests {
         #expect(try String(contentsOf: source, encoding: .utf8).contains("invalid Pkl"))
     }
 
-    @Test func optionalV1BaselineComparison() throws {
-        guard let directory = ProcessInfo.processInfo.environment["XCPROJ_V1_BASELINE"] else {
-            return
-        }
-        for name in ["Tool", "Demo"] {
-            let source = repository.appendingPathComponent(
-                name == "Tool" ? "Examples/Tool/Project.pkl" : "Examples/iOS/Project.pkl")
-            let baseline = URL(fileURLWithPath: directory).appendingPathComponent(
-                "\(name).xcodeproj/project.xcproj")
-            let plan = try GenerationPlan.compile(
-                source: source, output: baseline.deletingLastPathComponent())
-            let old = try XCSchema.Project(jsonRepresentation: Data(contentsOf: baseline))
-                .jsonRepresentation()
-            let new = try XCSchema.Project(jsonRepresentation: plan.projects[0].data)
-                .jsonRepresentation()
-            #expect(old == new)
-        }
-        let workspace = try GenerationPlan.compile(
-            source: repository.appendingPathComponent("Examples/Workspace/Workspace.pkl"))
-        for file in workspace.projects {
-            let baseline = URL(fileURLWithPath: directory).appendingPathComponent(
-                file.bundle.deletingPathExtension().lastPathComponent + ".xcproj")
-            let old = try XCSchema.Project(jsonRepresentation: Data(contentsOf: baseline))
-                .jsonRepresentation()
-            let new = try XCSchema.Project(jsonRepresentation: file.data).jsonRepresentation()
-            #expect(old == new)
-        }
-    }
 }

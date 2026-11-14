@@ -72,7 +72,6 @@ private let validDocument = #"""
 private func manifest(_ f: Fixture, paths: [[String: Any]]) throws -> InputManifest {
     let object: [String: Any] = [
         "protocolVersion": 1, "schemaVersion": 2, "kind": "project",
-        "entrySourceUri": f.root.appendingPathComponent("Project.pkl").absoluteString,
         "rootArtifactId": "root", "paths": paths,
         "artifacts": [
             ["id": "root", "kind": "project", "bundlePathId": "bundle", "filePathId": "file"]

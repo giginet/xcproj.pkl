@@ -16,17 +16,13 @@ function target(raw: Dynamic): W.TargetInput = new {
   dependencies = raw.dependencies.toList().map((d) -> dependency(d))
 }
 function project(raw: Dynamic): W.ProjectInput = new {
-  key = raw.key; name = raw.name; idNamespace = raw.idNamespace
+  key = raw.key; idNamespace = raw.idNamespace
   sourcePathId = raw.sourcePathId; rootPathId = raw.rootPathId; artifactId = raw.artifactId
   configurations = strings(raw.configurations)
   defaultConfiguration = raw.defaultConfiguration
   settings = module.settings(raw.settings)
   configFiles = strings(raw.configFiles)
   targets = raw.targets.toList().map((t) -> target(t))
-}
-function workspace(raw: Dynamic): W.WorkspaceInput = new {
-  name = raw.name; sourcePathId = raw.sourcePathId; rootPathId = raw.rootPathId
-  artifactId = raw.artifactId; projectKeys = raw.projectKeys.toList()
 }
 function path(raw: Dynamic): W.PathRequest = new {
   id = raw.id; path = raw.path; expectedKind = raw.expectedKind
@@ -43,15 +39,14 @@ function artifact(raw: Dynamic): W.ArtifactRequest = new {
 }
 function snapshot(raw: Dynamic): W.Snapshot = new {
   protocolVersion = raw.protocolVersion; schemaVersion = raw.schemaVersion; kind = raw.kind
-  entrySourceUri = raw.entrySourceUri; rootArtifactId = raw.rootArtifactId
+  rootArtifactId = raw.rootArtifactId
   projects = raw.projects.toList().map((p) -> project(p))
-  workspace = if (raw.kind == "workspace") module.workspace(raw.workspace) else null
   paths = raw.paths.toList().map((p) -> path(p))
   artifacts = raw.artifacts.toList().map((a) -> artifact(a))
 }
 function fact(raw: Dynamic): W.PathFact = new {
   absolutePath = raw.absolutePath; canonicalUri = raw.canonicalUri
-  components = raw.components.toList(); exists = raw.exists; actualKind = raw.actualKind
+  components = raw.components.toList()
 }
 function facts(raw: Dynamic): W.HostFacts = new {
   protocolVersion = raw.protocolVersion

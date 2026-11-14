@@ -82,7 +82,7 @@ private final class WorkspaceXMLReader: NSObject, XMLParserDelegate {
         parser.abortParsing()
     }
 
-    func location(_ value: String, directory: Bool) throws -> URL {
+    func location(_ value: String) throws -> URL {
         guard let separator = value.firstIndex(of: ":") else {
             throw ProjectError(
                 "Workspace location needs a group:, container:, or absolute: prefix: \(value)")
@@ -104,10 +104,10 @@ private final class WorkspaceXMLReader: NSObject, XMLParserDelegate {
             throw ProjectError("Expected a relative workspace location: \(value)")
         }
         let resolved = URL(
-            fileURLWithPath: path.isEmpty ? "." : path, isDirectory: directory, relativeTo: base
+            fileURLWithPath: path.isEmpty ? "." : path, isDirectory: true, relativeTo: base
         )
         .standardizedFileURL.resolvingSymlinksInPath()
-        return URL(fileURLWithPath: resolved.path, isDirectory: directory)
+        return URL(fileURLWithPath: resolved.path, isDirectory: true)
     }
 
     func parser(
@@ -128,12 +128,12 @@ private final class WorkspaceXMLReader: NSObject, XMLParserDelegate {
                 switch elementName {
                 case "Group":
                     groups.append(
-                        try location(attributeDict["location"] ?? "group:", directory: true))
+                        try location(attributeDict["location"] ?? "group:"))
                 case "FileRef":
                     guard let value = attributeDict["location"] else {
                         throw ProjectError("FileRef is missing location")
                     }
-                    let project = try location(value, directory: true)
+                    let project = try location(value)
                     guard project.pathExtension == "xcodeproj" else {
                         throw ProjectError(
                             "Only .xcodeproj workspace references are supported: \(value)")

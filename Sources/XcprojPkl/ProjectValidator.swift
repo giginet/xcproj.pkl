@@ -10,7 +10,7 @@ public enum ProjectValidator {
         return project.targets.count
     }
 
-    static func validate(_ project: XCSchema.Project) throws {
+    private static func validate(_ project: XCSchema.Project) throws {
         var diagnostics: [String] = []
         var ids = Set<String>()
         var treeIDs = Set<String>()
@@ -183,7 +183,7 @@ public enum ProjectValidator {
                 }
             }
         }
-        do { try validateAcyclicGraph(graph, label: "Target dependency") } catch {
+        do { try validateTargetGraph(graph) } catch {
             diagnostics.append(String(describing: error))
         }
         if !diagnostics.isEmpty { throw ProjectError(diagnostics.sorted()) }
@@ -202,4 +202,18 @@ extension XCSchema.BuildPhase {
         case .script(let p): p.baseProperties
         }
     }
+}
+
+private func validateTargetGraph(_ graph: [String: [String]]) throws {
+    var complete = Set<String>()
+    func visit(_ node: String, stack: [String]) throws {
+        if stack.contains(node) {
+            throw ProjectError(
+                "Target dependency cycle: \((stack + [node]).joined(separator: " → "))")
+        }
+        if complete.contains(node) { return }
+        for next in graph[node] ?? [] { try visit(next, stack: stack + [node]) }
+        complete.insert(node)
+    }
+    for node in graph.keys.sorted() { try visit(node, stack: []) }
 }

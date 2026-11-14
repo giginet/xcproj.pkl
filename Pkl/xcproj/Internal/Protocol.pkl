@@ -6,16 +6,13 @@ class Snapshot {
   protocolVersion: Int(this == 1) = 1
   schemaVersion: Int(this == 2) = 2
   kind: "project" | "workspace"
-  entrySourceUri: String
   rootArtifactId: String
   projects: List<ProjectInput>
-  workspace: WorkspaceInput?
   paths: List<PathRequest>
   artifacts: List<ArtifactRequest>
 }
 class ProjectInput {
   key: String
-  name: String
   idNamespace: String
   sourcePathId: String
   rootPathId: String
@@ -48,13 +45,6 @@ class DependencyInput {
   link: Boolean
   embed: Boolean
 }
-class WorkspaceInput {
-  name: String
-  sourcePathId: String
-  rootPathId: String
-  artifactId: String
-  projectKeys: List<String>
-}
 class PathBase {
   kind: "uri" | "request"
   uri: String?
@@ -83,6 +73,4 @@ class PathFact {
   absolutePath: String
   canonicalUri: String
   components: List<String>
-  exists: Boolean
-  actualKind: "file" | "directory" | "missing"
 }

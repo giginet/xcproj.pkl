@@ -100,9 +100,9 @@ struct PklPackageTests {
             """)
         try FileManager.default.setAttributes(
             [.posixPermissions: 0o755], ofItemAtPath: wrapper.path)
-        let evaluator = PklEvaluator(executable: wrapper.path)
-        let standalone = try GenerationPlan.compile(source: source, evaluator: evaluator)
-        let plan = try GenerationPlan.compile(source: workspace, evaluator: evaluator)
+        let evaluator = PklTool(executable: wrapper.path)
+        let standalone = try GenerationPlan.compile(source: source, tool: evaluator)
+        let plan = try GenerationPlan.compile(source: workspace, tool: evaluator)
         #expect(plan.projectCount == 1 && plan.targetCount == 1)
         #expect(plan.projects[0].data == standalone.projects[0].data)
         try plan.write()

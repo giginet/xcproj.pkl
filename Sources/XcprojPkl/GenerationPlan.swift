@@ -15,10 +15,8 @@ public struct GenerationPlan: Sendable {
     public let targetCount: Int
     public var projects: [File] { files.filter(\.isProject) }
 
-    public static func compile(
-        source: URL, evaluator: PklEvaluator = PklEvaluator(), properties: [String] = [],
-        output: URL? = nil
-    ) throws -> GenerationPlan {
+    /// Check caller-supplied properties before dependency resolution or evaluation.
+    public static func validateProperties(_ properties: [String]) throws {
         for property in properties {
             guard let separator = property.firstIndex(of: "="), separator != property.startIndex
             else {
@@ -28,8 +26,15 @@ public struct GenerationPlan: Sendable {
                 throw ProjectError("The xcproj.internal. property namespace is reserved")
             }
         }
+    }
+
+    public static func compile(
+        source: URL, tool: PklTool = PklTool(), properties: [String] = [],
+        output: URL? = nil
+    ) throws -> GenerationPlan {
+        try validateProperties(properties)
         // Canonicalize the entry before Pkl resolves its own relative imports.
-        let snapshot = try evaluator.evaluate(canonicalFileURL(source), properties: properties)
+        let snapshot = try tool.evaluate(canonicalFileURL(source), properties: properties)
         let manifest = try JSONDecoder().decode(InputManifest.self, from: snapshot)
         let facts = try HostFacts.observe(manifest, output: output)
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(
@@ -42,7 +47,7 @@ public struct GenerationPlan: Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         try encoder.encode(facts).write(to: host)
-        let rendered = try evaluator.evaluate(
+        let rendered = try tool.evaluate(
             PklRuntimeResources.renderer,
             properties: [
                 "xcproj.internal.request=\(request.absoluteString)",

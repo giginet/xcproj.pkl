@@ -283,9 +283,14 @@ Pkl/xcproj/Internal/WorkspaceXml.pkl     XML構築
 Pkl/xcproj/Internal/Render.pkl           完成ファイルを含む生成計画
 Sources/XcprojPkl/HostFacts.swift  OSパス情報の取得
 Sources/XcprojPkl/GenerationPlan.swift  実行、最終検証、出力制御
+Sources/XcprojPkl/PklTool.swift  Pklの評価・依存解決・バージョン確認
 ```
 
 ユーザーモジュールを一度評価して固定Snapshotを作り、Swiftがsymlink・存在・種別の情報を補った後、内部Render.pklを評価します。生成計画の評価はWorkspace全体でPklプロセス2回です。CLIはその前に依存解決のためのPklプロセスを1回起動します（PklProjectがある場合）。2回目にユーザーモジュールを再importしません。SwiftはTargetやSettingsの作者モデルをdecodeせず、完成したJSON/XMLも書き換えません。
+
+Swift側に残すのはCLI、Pklプロセスの起動、OS上のパス情報、Apple XCSchemaと既存成果物の参照検証、ファイル書き込みです。Targetの継承・設定の合成・ID計算・JSON/XML構築はPkl側にあります。既存成果物の検証はPklを使わないため、SwiftのProjectValidator / WorkspaceValidatorが担当します。
+
+Swiftライブラリからは `PklTool` を共通の実行窓口として使います。生成計画は `GenerationPlan.compile(source:tool:properties:output:)` で作成します。
 
 内部PklはSwiftPMのresource bundleに含めています。実行ファイルを移動する場合は`xcproj-pkl_PklRuntimeResources.bundle`も同じディレクトリへ配置してください。
 

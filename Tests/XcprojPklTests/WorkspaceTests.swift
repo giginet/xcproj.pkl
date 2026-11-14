@@ -204,7 +204,7 @@ struct NativeWorkspaceTests {
         try FileManager.default.setAttributes(
             [.posixPermissions: 0o755], ofItemAtPath: wrapper.path)
         let plan = try GenerationPlan.compile(
-            source: entry, evaluator: PklEvaluator(executable: wrapper.path))
+            source: entry, tool: PklTool(executable: wrapper.path))
         #expect(plan.projectCount == 100 && plan.targetCount == 200)
         #expect(try String(contentsOf: calls, encoding: .utf8).split(separator: "\n").count == 2)
         try plan.write()

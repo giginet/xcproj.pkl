@@ -5,7 +5,6 @@ struct InputManifest: Decodable {
     let protocolVersion: Int
     let schemaVersion: Int
     let kind: ArtifactKind
-    let entrySourceUri: String
     let rootArtifactId: String
     let paths: [PathRequest]
     let artifacts: [ArtifactRequest]
@@ -15,7 +14,6 @@ struct InputManifest: Decodable {
             throw ProjectError(
                 "Unsupported Pkl protocol or schemaVersion; expected schemaVersion 2")
         }
-        _ = try localFileURL(entrySourceUri)
         guard !paths.isEmpty, Set(paths.map(\.id)).count == paths.count,
             paths.allSatisfy({ !$0.id.isEmpty }),
             !artifacts.isEmpty, Set(artifacts.map(\.id)).count == artifacts.count,
@@ -36,7 +34,7 @@ struct InputManifest: Decodable {
     }
 }
 
-enum ArtifactKind: String, Codable, Sendable { case project, workspace }
+enum ArtifactKind: String, Decodable, Sendable { case project, workspace }
 struct ArtifactRequest: Decodable {
     let id: String
     let kind: ArtifactKind
@@ -66,8 +64,6 @@ struct HostFacts: Encodable {
         let absolutePath: String
         let canonicalUri: String
         let components: [String]
-        let exists: Bool
-        let actualKind: String
         var url: URL { URL(fileURLWithPath: absolutePath) }
     }
     let protocolVersion = 1
@@ -138,7 +134,7 @@ struct HostFacts: Encodable {
             }
             let fact = PathFact(
                 absolutePath: canonical.path, canonicalUri: canonical.absoluteString,
-                components: canonical.pathComponents, exists: exists, actualKind: actualKind)
+                components: canonical.pathComponents)
             facts[id] = fact
             return fact
         }

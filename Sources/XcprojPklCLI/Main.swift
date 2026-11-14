@@ -34,14 +34,7 @@ struct EvaluationOptions: ParsableArguments {
     var property: [String] = []
 
     mutating func validate() throws {
-        for value in property {
-            guard let separator = value.firstIndex(of: "="), separator != value.startIndex else {
-                throw ValidationError("Expected --property key=value, got '\(value)'")
-            }
-            guard !value[..<separator].hasPrefix("xcproj.internal.") else {
-                throw ValidationError("The xcproj.internal. property namespace is reserved")
-            }
-        }
+        try GenerationPlan.validateProperties(property)
     }
 
     func plan(_ source: URL, output: URL? = nil) throws -> GenerationPlan {
@@ -59,7 +52,7 @@ struct EvaluationOptions: ParsableArguments {
             directory = parent
         }
         return try GenerationPlan.compile(
-            source: source, evaluator: PklEvaluator(executable: runtime.pkl), properties: property,
+            source: source, tool: runtime.tool, properties: property,
             output: output)
     }
 }
