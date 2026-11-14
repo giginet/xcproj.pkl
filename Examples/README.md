@@ -17,6 +17,8 @@ swift run xcprojgen generate Examples/iOS --output-dir /tmp/xcprojgen-ios
 
 `Tool` はmacOSのCLI、`Workspace` は3つのFramework Projectと各テストをまとめる例です。Workspaceを別ディレクトリへ生成しても、メンバーのProjectは各 `projectDir` に生成します。
 
+[Advanced](Advanced/README.md)はローカルSwift Package、pre/post build script、共有Schemeを組み合わせたmacOSツールの例です。`swift run xcprojgen generate Examples/Advanced --output-dir /tmp/xcprojgen-advanced` で生成できます。
+
 ## Swift 6とNotification Service Extension
 
 `Shared/Templates.pkl` の `Swift6Framework` は公開スキーマの `Target` を継承します。`Shared/Settings.pkl` からimportする `compiler` に `SWIFT_VERSION = "6.0"` があり、生成するFrameworkはSwift 6モードになります。

@@ -16,6 +16,7 @@ public enum ProjectValidator {
         var treeIDs = Set<String>()
         var paths: [[String]: Int] = [:]
         var phaseIDs = Set<String>()
+        var versionGroups: [(XCSchema.VersionGroup, [String])] = []
         let targets = Dictionary(grouping: project.targets, by: \.name)
         let configs = project.configurations.map { $0.name.rawValue }
         if Set(configs).count != configs.count {
@@ -38,11 +39,19 @@ public enum ProjectValidator {
             }
         }
         registerID(project.objectID, context: "project")
+        registerID(project.rootGroupDebugID, context: "root group")
+        registerID(project.configurationListDebugID, context: "project configuration list")
         for config in project.configurations {
             registerID(config.objectID, context: "configuration \(config.name.rawValue)")
         }
         for target in project.targets {
             registerID(target.commonProperties.objectID, context: "target \(target.name)")
+            registerID(
+                target.commonProperties.configurationListDebugID,
+                context: "\(target.name) configuration list")
+            for rule in target.commonProperties.buildRules {
+                registerID(rule.objectID, context: "\(target.name) build rule")
+            }
             let specializedNames = target.commonProperties.specializedConfigurations.map {
                 $0.name.rawValue
             }
@@ -90,6 +99,20 @@ public enum ProjectValidator {
                 checkPhase(file.buildPhase)
             }
         }
+        func checkPackageBuildFile(_ file: XCSchema.TargetBuildFile, target: XCSchema.Target) {
+            registerID(file.objectID, context: "\(target.name) package build file")
+            let matches = target.commonProperties.buildPhases.filter { phase in
+                switch file.buildPhase {
+                case .objectID(let id): phase.properties.objectID == id
+                case .named(let kind, let name):
+                    phase.kind == kind && (name == nil || phase.properties.name == name)
+                }
+            }
+            if matches.count != 1 {
+                diagnostics.append(
+                    "\(target.name): unknown or ambiguous package build phase '\(file.buildPhase)'")
+            }
+        }
         func addTreeNode(name: String, id: XCSchema.ObjectID?, parent: [String]) {
             paths[parent + [name], default: 0] += 1
             registerID(id, context: "file tree \((parent + [name]).joined(separator: "/"))")
@@ -127,6 +150,7 @@ public enum ProjectValidator {
                         group.children.map(XCSchema.Reference.fileReference),
                         parent: parent + [group.name])
                 case .versionGroup(let group):
+                    versionGroups.append((group, parent + [group.name]))
                     addTreeNode(name: group.name, id: group.objectID, parent: parent)
                     checkBuildFiles(group.buildFiles)
                     walk(
@@ -136,6 +160,17 @@ public enum ProjectValidator {
             }
         }
         walk(project.topLevelReferences, parent: [])
+        func resolve(_ path: XCSchema.NamePath, relativeTo parent: [String] = []) -> [String] {
+            var components = parent
+            for component in path.components {
+                switch component {
+                case .child(let name): components.append(name)
+                case .relative(.current): break
+                case .relative(.parent): if !components.isEmpty { components.removeLast() }
+                }
+            }
+            return components
+        }
         func checkTreeReference(_ reference: XCSchema.GroupTreeReference, context: String) {
             switch reference {
             case .objectID(let id):
@@ -143,20 +178,41 @@ public enum ProjectValidator {
                     diagnostics.append("\(context): unknown file tree ID '\(id.rawValue)'")
                 }
             case .namePath(let path):
-                var components: [String] = []
-                for component in path.components {
-                    switch component {
-                    case .child(let name): components.append(name)
-                    case .relative(.current): break
-                    case .relative(.parent): if !components.isEmpty { components.removeLast() }
-                    }
-                }
+                let components = resolve(path)
                 if paths[components] != 1 {
                     diagnostics.append(
                         "\(context): unknown or ambiguous file reference '\(reference.description)'"
                     )
                 }
             }
+        }
+        if let products = project.productsGroup {
+            checkTreeReference(products, context: "Products group")
+        }
+        for (group, path) in versionGroups {
+            guard let current = group.currentVersion else { continue }
+            let valid: Bool
+            switch current {
+            case .objectID(let id):
+                valid = group.children.filter { $0.objectID == id }.count == 1
+            case .namePath(let reference):
+                let children = Set(
+                    group.children.map { path + [($0.path.path as NSString).lastPathComponent] })
+                // Version names are relative to their group. Also accept an explicit
+                // root-relative tree reference if it names a direct child of that group.
+                valid = [resolve(reference, relativeTo: path), resolve(reference)].contains {
+                    children.contains($0) && paths[$0] == 1
+                }
+            }
+            if !valid {
+                diagnostics.append(
+                    "Version group \(group.name): current version '\(current)' must name a child file"
+                )
+            }
+        }
+        for product in project.importedProducts {
+            checkTreeReference(product.project, context: "Imported product \(product.path)")
+            checkBuildFiles(product.buildFiles)
         }
         for config in project.configurations {
             if let file = config.file {
@@ -176,10 +232,18 @@ public enum ProjectValidator {
                 }
             }
             graph[target.name] = []
+            for member in target.commonProperties.packageProductTargetMembers {
+                checkPackageBuildFile(member.buildFile, target: target)
+            }
             for dependency in target.commonProperties.dependencies {
-                if case .localTarget(let reference, _) = dependency {
+                switch dependency {
+                case .localTarget(let reference, _):
                     checkTarget(reference.targetName, context: "Dependency of \(target.name)")
                     graph[target.name, default: []].append(reference.targetName)
+                case .remoteTarget(let reference, _):
+                    checkTreeReference(
+                        reference.project, context: "Remote dependency of \(target.name)")
+                case .package: break
                 }
             }
         }

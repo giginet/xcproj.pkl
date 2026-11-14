@@ -1,0 +1,47 @@
+/// Freeze the typed authoring model into Xcode-shaped JSON before the host observes paths.
+module xcproj.Projection
+import "ProjectModel.pkl" as M
+import "SchemaRender.pkl" as R
+
+function packageIdentity(package: M.SwiftPackage): String =
+  let (location = if (package is M.LocalSwiftPackage) package.path else (package as M.RemoteSwiftPackage).repository)
+  location.replaceAll(Regex("/+$"), "").split("/").last.replaceAll(Regex("\\.git$"), "")
+
+function configurations(entries: Mapping<String, M.Configuration>): Map<String, Dynamic> =
+  entries.toMap().mapValues((key, config) -> R.configuration((config) { name = key }))
+
+function project(p: M): Dynamic = new {
+  id = p.id
+  `root-group-debug-id` = p.rootGroupDebugId
+  `configuration-list-debug-id` = p.configurationListDebugId
+  organization = p.organization
+  `class-prefix` = p.classPrefix
+  `required-capabilities` = p.requiredCapabilities
+  `build-independent-targets-in-parallel` = p.buildIndependentTargetsInParallel
+  `last-upgrade` = p.lastUpgrade
+  `last-swift-update` = p.lastSwiftUpdate
+  `last-swift-migration` = p.lastSwiftMigration
+  localizations = R.localizations(p.localizations)
+  `imported-products` = p.importedProducts.toList().map((v) -> R.importedProduct(v))
+}
+
+function target(p: M, t: M.Target): Dynamic = new {
+  kind = t.kind
+  product = if (t.product != null) R.namePath(t.product!!) else null
+  when (t.fullProductType != null) { `full-product-type` = t.fullProductType }
+  `configuration-list-debug-id` = t.configurationListDebugId
+  `last-swift-update` = t.lastSwiftUpdate
+  `last-swift-migration` = t.lastSwiftMigration
+  `legacy-provisioning-style` = t.legacyProvisioningStyle
+  `legacy-team-id` = t.legacyTeamId
+  `test-host-target` = if (t.testHostTarget != null) p.targets[t.testHostTarget!!].name else null
+  `build-rules` = t.buildRules.toList().map((v) -> R.buildRule(v))
+  dependencies = t.targetDependencies.toList().map((v) -> R.targetDependency(v))
+  `package-product-members` = t.packageProductMembers.toList().map((v) -> R.packageProductMember(v))
+  when (t.kind == "external-build-system") {
+    `build-tool-path` = t.buildToolPath
+    `build-tool-arguments` = t.buildToolArguments
+    `build-tool-working-directory` = t.buildToolWorkingDirectory
+    `pass-build-settings-in-environment` = t.passBuildSettingsInEnvironment
+  }
+}

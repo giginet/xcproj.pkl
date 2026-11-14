@@ -6,6 +6,7 @@ import "Decode.pkl" as Decode
 import "Validation.pkl" as Validation
 import "Xcode.pkl" as Xcode
 import "WorkspaceXml.pkl" as WorkspaceXml
+import "Schemes.pkl" as Schemes
 
 hidden snapshot = Decode.snapshot((new json.Parser {}).parse(read(read("prop:xcproj.internal.request"))))
 hidden facts = Decode.facts((new json.Parser {}).parse(read(read("prop:xcproj.internal.hostFacts"))))
@@ -15,8 +16,15 @@ output {
   files = if (module.valid) new Mapping {
     for (p in snapshot.projects) {
       ["\(p.artifactId)/project.xcproj"] = new FileOutput {
-        renderer = new JsonRenderer {}
+        // Optional authoring fields were omitted when freezing the Snapshot.
+        // Preserve explicit null here: products-group:null disables Xcode's default group.
+        renderer = new JsonRenderer { omitNullProperties = false }
         value = Xcode.document(p, facts)
+      }
+    }
+    for (s in snapshot.schemes) {
+      ["\(Schemes.identifier(s))/scheme.xcscheme"] = new FileOutput {
+        text = Schemes.render(s, snapshot, facts)
       }
     }
     when (snapshot.kind == "workspace") {
@@ -40,7 +48,7 @@ hidden renderPlanText = let (generatedOutputs = output.files!!)
           artifactId = a.id
           kind = a.kind
           destinationUri = facts.paths[a.filePathId].canonicalUri
-          text = generatedOutputs[if (a.kind == "project") "\(a.id)/project.xcproj" else "workspace/contents.xcworkspacedata"].text
+          text = generatedOutputs[if (a.kind == "project") "\(a.id)/project.xcproj" else if (a.kind == "scheme") "\(a.id)/scheme.xcscheme" else "workspace/contents.xcworkspacedata"].text
         }
       }
     }

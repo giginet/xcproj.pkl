@@ -3,6 +3,7 @@ import "pkl:reflect"
 import "ProjectModel.pkl" as Model
 import "Protocol.pkl" as W
 import "Paths.pkl" as Paths
+import "Schemes.pkl" as Schemes
 
 function check(condition: Boolean, message: String): Boolean = if (condition) true else throw(message)
 function name(value: String, context: String): Boolean =
@@ -30,12 +31,38 @@ function authorProject(p: Model): Boolean =
     for (key, kind in p.configs) { name(key, "configs") }
     check(!p.targets.isEmpty, "targets must contain at least one target")
     authorSettings(p.settings, p)
+    check(!p.localizations.supported.contains(p.localizations.development), "localizations.supported must not repeat the development language")
+    for (key, detail in p.configurationDetails) {
+      check(p.configs.containsKey(key), "configurationDetails: unknown configuration '\(key)'")
+      check(detail.file == null || !p.configFiles.containsKey(key), "Use either configFiles or configurationDetails.file for '\(key)'")
+    }
     for (config, file in p.configFiles) { check(p.configs.containsKey(config), "configFiles: unknown configuration '\(config)'") }
     for (key, t in p.targets) {
       check(!key.isEmpty, "Empty target key")
       name(t.name, "targets.\(key).name")
+      check(t.kind != "native" || t.type != null || t.fullProductType != null, "targets.\(key): native targets require type or fullProductType")
+      check(t.type == null || t.fullProductType == null, "targets.\(key): specify only one of type and fullProductType")
+      check(t.product == null || t.productName != null, "targets.\(key): an explicit product reference requires productName with the full product filename")
+      check(t.fullProductType == null || t.product != null || (t.productName != null && t.productFileType != null), "targets.\(key): custom fullProductType requires productName and productFileType, or an explicit product reference")
+      check(t.kind != "external-build-system" || t.buildToolPath != null, "targets.\(key): external-build-system requires buildToolPath")
+      check(t.testHostTarget == null || p.targets.containsKey(t.testHostTarget), "targets.\(key): unknown testHostTarget")
       check(t.type != "tool" || t.platform == "macOS", "targets.\(key): tool requires macOS")
       authorSettings(t.settings, p)
+      for (config, detail in t.configurationDetails) {
+        check(p.configs.containsKey(config), "targets.\(key).configurationDetails: unknown configuration '\(config)'")
+        check(detail.id != null || detail.file != null || t.configFiles.containsKey(config), "targets.\(key): redundant configuration specialization '\(config)'")
+        check(detail.file == null || !t.configFiles.containsKey(config), "targets.\(key): use either configFiles or configurationDetails.file for '\(config)'")
+      }
+      for (d in t.dependencies) {
+        check((d.target != null) != (d.package != null), "targets.\(key): dependency requires exactly one of target or package")
+        when (d.package != null) {
+          check(p.packages.containsKey(d.package), "targets.\(key): unknown package '\(d.package)' dependency")
+          check(d.product != null, "targets.\(key): package dependency requires product")
+          check(!d.embed || (d.productType != "build-tool-plugin" && (t.type?.startsWith("application") ?? false)), "targets.\(key): only applications may embed package libraries")
+        } else {
+          check(d.product == null, "targets.\(key): product is only valid for a package dependency")
+        }
+      }
       for (config, file in t.configFiles) { check(p.configs.containsKey(config), "targets.\(key).configFiles: unknown configuration '\(config)'") }
       for (s in t.sources) {
         check(s.kind == "folder" || s.excludes.isEmpty, "excludes requires a folder source")
@@ -61,14 +88,17 @@ function project(p: W.ProjectInput, facts: W.HostFacts): Boolean =
   let (byKey = (new Mapping<String, W.TargetInput> { for (t in p.targets) { [t.key] = t } }).toMap())
   (new Listing<Boolean> {
     check(p.targets.map((t) -> t.name).toSet().length == p.targets.length, "\(p.key): Duplicate target name")
-    check((p.targets.flatMap((t) -> List(t.id.toUpperCase(), t.productId.toUpperCase()))).toSet().length == p.targets.length * 2, "\(p.key): Duplicate object ID")
+    local packageNames = p.packages.map((entry) -> (if (entry.pathId != null) facts.paths[entry.pathId!!].components.last else entry.identity).toLowerCase())
+    check(packageNames.toSet().length == packageNames.length, "\(p.key): Duplicate Swift package identity")
+    local objectIds = p.targets.flatMap((t) -> List(t.id.toUpperCase()) + (if (t.hasProduct) List(t.productId.toUpperCase()) else List()))
+    check(objectIds.toSet().length == objectIds.length, "\(p.key): Duplicate object ID")
     for (t in p.targets) {
-      for (d in t.dependencies) {
+      for (d in t.dependencies.filter((dependency) -> dependency.target != null)) {
         check(byKey.containsKey(d.target), "targets.\(t.key): unknown dependency '\(d.target)'")
         when (byKey.containsKey(d.target)) {
-          check(t.platform == byKey[d.target].platform, "targets.\(t.key): dependency '\(d.target)' has a different platform")
-          check(!d.link || byKey[d.target].type == "framework", "targets.\(t.key): only frameworks can be linked")
-          check(!d.embed || (List("framework", "app-extension").contains(byKey[d.target].type) && t.type == "application"), "targets.\(t.key): embedding is supported for application → framework/app-extension dependencies only")
+          check((!d.link && !d.embed && (t.kind != "native" || byKey[d.target].kind != "native")) || t.platform == byKey[d.target].platform, "targets.\(t.key): dependency '\(d.target)' has a different platform")
+          check(!d.link || List("framework", "framework.static", "library.static", "library.dynamic", "xcframework").contains(byKey[d.target].type), "targets.\(t.key): only frameworks can be linked (or static/dynamic libraries and XCFrameworks)")
+          check(!d.embed || (List("framework", "library.dynamic", "xcframework", "app-extension", "watchkit-extension", "watchkit2-extension", "app-extension.messages", "app-extension.messages-sticker-pack").contains(byKey[d.target].type) && (t.type?.startsWith("application") ?? false)), "targets.\(t.key): embedding is supported for application → framework/app-extension dependencies only; other extension types require an explicit CopyFilesBuildPhase")
         }
         check(t.dependencies.filter((other) -> other.target == d.target).every((other) -> other == d), "targets.\(t.key): conflicting dependency options for '\(d.target)'")
       }
@@ -81,11 +111,11 @@ function project(p: W.ProjectInput, facts: W.HostFacts): Boolean =
         }
       }
     }
-    acyclic(byKey.mapValues((k, t) -> t.dependencies.map((d) -> d.target)))
+    acyclic(byKey.mapValues((k, t) -> t.dependencies.map((d) -> d.target).filterNonNull()))
   }).toList().every((v) -> v)
 
 function snapshot(s: W.Snapshot, facts: W.HostFacts): Boolean =
-  let (bundles = s.artifacts.map((a) -> Paths.absolute(facts, a.bundlePathId)))
+  let (bundles = s.artifacts.filter((a) -> a.kind != "scheme").map((a) -> Paths.absolute(facts, a.bundlePathId)))
   (new Listing<Boolean> {
     check(s.protocolVersion == 1 && s.schemaVersion == 2 && facts.protocolVersion == 1, "Unsupported protocol or schemaVersion")
     check(s.paths.map((p) -> p.id).toSet() == facts.paths.keys, "HostFacts do not match Snapshot path requests")
@@ -97,4 +127,5 @@ function snapshot(s: W.Snapshot, facts: W.HostFacts): Boolean =
       }
     }
     for (p in s.projects) { project(p, facts) }
+    Schemes.validate(s, facts)
   }).toList().every((v) -> v)

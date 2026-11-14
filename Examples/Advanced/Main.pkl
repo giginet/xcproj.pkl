@@ -1,0 +1,62 @@
+amends "@xcproj/Project.pkl"
+import "../Shared/Templates.pkl" as Shared
+
+name = "Advanced"
+idNamespace = "com.example.advanced"
+
+// The alias, directory name, Package.name, product name, and module name differ.
+packages {
+    ["support"] = new LocalSwiftPackage { path = "Packages/LocalSupport" }
+}
+
+targets {
+    ["tool"] = new Shared.MacTool {
+        name = "AdvancedTool"
+        dependencies {
+            new { package = "support"; product = "AdvancedSupport" }
+        }
+        settings {
+            base {
+                ["CODE_SIGNING_ALLOWED"] = "NO"
+                ["ENABLE_USER_SCRIPT_SANDBOXING"] = "YES"
+            }
+        }
+        preBuildScripts {
+            new {
+                name = "Prepare Build Marker"
+                script = #"""
+                    set -eu
+                    mkdir -p "$(dirname "$SCRIPT_OUTPUT_FILE_0")"
+                    printf '%s\n' 'pre-build completed' > "$SCRIPT_OUTPUT_FILE_0"
+                    """#
+                outputPaths { "$(DERIVED_FILE_DIR)/advanced-pre.txt" }
+            }
+        }
+        postBuildScripts {
+            new {
+                name = "Verify Built Tool"
+                script = #"""
+                    set -eu
+                    test -s "$SCRIPT_INPUT_FILE_0"
+                    test -x "$SCRIPT_INPUT_FILE_1"
+                    printf '%s\n' 'post-build completed' > "$SCRIPT_OUTPUT_FILE_0"
+                    """#
+                inputPaths {
+                    "$(DERIVED_FILE_DIR)/advanced-pre.txt"
+                    "$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)"
+                }
+                outputPaths { "$(DERIVED_FILE_DIR)/advanced-post.txt" }
+            }
+        }
+    }
+}
+
+schemes {
+    ["AdvancedTool"] = new {
+        build { targets { new { target = "tool" } } }
+        run = new { target = "tool" }
+        profile = new { target = "tool" }
+        analyze = new {}
+        archive = new {}
+    }
+}
