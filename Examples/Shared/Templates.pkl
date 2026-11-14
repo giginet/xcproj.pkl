@@ -1,5 +1,5 @@
 module examples.Templates
-import "../../Pkl/Project.pkl"
+import "../../Pkl/xcproj/Project.pkl"
 import "Settings.pkl" as Common
 open class SwiftTarget extends Project.Target {
   local target = this

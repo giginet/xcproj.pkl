@@ -5,8 +5,8 @@ import Testing
 
 let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
   .deletingLastPathComponent().deletingLastPathComponent()
-let schema = repository.appendingPathComponent("Pkl/Project.pkl").path
-let workspaceSchema = repository.appendingPathComponent("Pkl/Workspace.pkl").path
+let schema = repository.appendingPathComponent("Pkl/xcproj/Project.pkl").path
+let workspaceSchema = repository.appendingPathComponent("Pkl/xcproj/Workspace.pkl").path
 let hasPkl = ProcessInfo.processInfo.environment["PKL_EXEC"] != nil
 
 func quoted(_ value: String) -> String {

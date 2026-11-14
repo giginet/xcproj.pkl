@@ -36,14 +36,50 @@ swift run xcproj-pkl generate MyProject.pkl --property flavor=debug
 
 `--pkl`と`--property`はPkl入力にのみ指定できます。`PKL_EXEC`は引数を含まない実行ファイルのパスです。`xcproj.internal.`というproperty名は内部処理用に予約しています。
 
+## Pkl Projectと配布パッケージ
+
+配布用のPkl Projectは `Pkl/xcproj/` です。SwiftPMのbridgeはその外に置いています。
+
+```text
+Pkl/
+  RuntimeResources.swift
+  xcproj/
+    PklProject
+    Project.pkl
+    Workspace.pkl
+    Internal/
+    tests/ApiTests.pkl
+    README.md
+Scripts/package-pkl.sh
+```
+
+```sh
+# APIテストと既存公開バージョンのチェックを実行し、配布物を作成。
+Scripts/package-pkl.sh
+
+# ネットワークを使わないローカル作成。
+Scripts/package-pkl.sh --skip-publish-check
+
+# Pklの実行ファイルと出力先を指定。
+Scripts/package-pkl.sh --pkl /path/to/pkl --skip-publish-check -o /tmp/pkl-dist
+```
+
+スクリプトは公式の `pkl project package` を使います。既定では `dist/pkl/xcproj@0.1.0/` にZip、パッケージメタデータ、両者のSHA-256 sidecarを生成します。APIテストもpackagerが実行し、テスト・manifest・SwiftソースをZipへ含めません。[公式CLI仕様](https://pkl-lang.org/main/current/pkl-cli/index.html#pkl-project-package)
+
+バージョン、package URI、ZipのURLは `Pkl/xcproj/PklProject` に集約しています。現在のURLは将来のGitHub Releases配布を想定した値です。リポジトリはprivateで配布先は未設定のため、公開時には利用者が取得できるmetadata/ZipのURLへ設定してください。スクリプトはアップロードしません。
+
+利用側は `PklProject` のdependenciesでパッケージを指定し、`pkl project resolve` 後に `amends "@xcproj/Project.pkl"` や `import "@xcproj/Project.pkl" as X` を使えます。checkoutを使う場合は `dependencies { ["xcproj"] = import("/path/to/xcproj.pkl/Pkl/xcproj/PklProject") }` というlocal dependencyも使えます。[依存とlocal dependencyの公式仕様](https://pkl-lang.org/main/current/language-reference/index.html#local-dependencies)
+
+具体例と配布先の配置は [パッケージREADME](Pkl/xcproj/README.md) に記載しています。
+
 ## Targetクラスと共有設定
 
-`Pkl/Project.pkl`は`open module`であり、Target、Settingsなどの公開型を含みます。次の例はリポジトリ直下に置くファイルです。
+`Pkl/xcproj/Project.pkl`は`open module`であり、Target、Settingsなどの公開型を含みます。次の例はリポジトリ直下に置くファイルです。
 
 `Settings.pkl`:
 
 ```pkl
-import "Pkl/Project.pkl" as X
+import "Pkl/xcproj/Project.pkl" as X
 
 warnings: X.Settings = new {
   base { ["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES" }
@@ -63,7 +99,7 @@ compiler = (warnings) {
 `Targets.pkl`:
 
 ```pkl
-import "Pkl/Project.pkl" as X
+import "Pkl/xcproj/Project.pkl" as X
 import "Settings.pkl" as Common
 
 open class SwiftTarget extends X.Target {
@@ -81,7 +117,7 @@ open class UnitTests extends SwiftTarget { type = "bundle.unit-test" }
 `Project.pkl`:
 
 ```pkl
-amends "Pkl/Project.pkl"
+amends "Pkl/xcproj/Project.pkl"
 import "Targets.pkl" as Shared
 
 name = "Catalog"
@@ -151,7 +187,7 @@ name = "Catalog"
 Workspace.pkl:
 
 ```pkl
-amends "../../Pkl/Workspace.pkl"
+amends "../../Pkl/xcproj/Workspace.pkl"
 name = "Modular"
 projects = import*("Modules/*/Project.pkl")
 ```
@@ -189,14 +225,14 @@ CLIに指定したentryはPkl評価前にもcanonical化します。Workspaceか
 ## 構成
 
 ```text
-Pkl/Project.pkl、Workspace.pkl      作者向けmodule class
-Pkl/Internal/ProjectModel.pkl     作者向け型の基底定義
-Pkl/Internal/Snapshot.pkl         評価済み設定とパス要求の投影
-Pkl/Internal/Builtins.pkl         標準設定、configuration、ID
-Pkl/Internal/Validation.pkl       モデル・グラフ検証
-Pkl/Internal/Xcode.pkl            完成Xcode JSONの構築
-Pkl/Internal/WorkspaceXml.pkl     XML構築
-Pkl/Internal/Render.pkl           完成ファイルを含む生成計画
+Pkl/xcproj/Project.pkl、Workspace.pkl      作者向けmodule class
+Pkl/xcproj/Internal/ProjectModel.pkl     作者向け型の基底定義
+Pkl/xcproj/Internal/Snapshot.pkl         評価済み設定とパス要求の投影
+Pkl/xcproj/Internal/Builtins.pkl         標準設定、configuration、ID
+Pkl/xcproj/Internal/Validation.pkl       モデル・グラフ検証
+Pkl/xcproj/Internal/Xcode.pkl            完成Xcode JSONの構築
+Pkl/xcproj/Internal/WorkspaceXml.pkl     XML構築
+Pkl/xcproj/Internal/Render.pkl           完成ファイルを含む生成計画
 Sources/XcprojPkl/HostFacts.swift  OSパス情報の取得
 Sources/XcprojPkl/GenerationPlan.swift  実行、最終検証、出力制御
 ```

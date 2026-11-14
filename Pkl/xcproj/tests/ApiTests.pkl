@@ -1,0 +1,57 @@
+amends "pkl:test"
+
+import "../Project.pkl" as X
+import "../Workspace.pkl" as Workspace
+
+local base: X.Target = new {
+  local target = this
+  name = "Core"
+  type = "framework"
+  platform = "macOS"
+  settings {
+    base {
+      ["PRODUCT_BUNDLE_IDENTIFIER"] = "example.\(target.name)"
+      ["OTHER_SWIFT_FLAGS"] = new Listing { "$(inherited)" }
+    }
+  }
+  sources { new { path = "Sources" } }
+}
+local amended = (base) {
+  name = "Renamed"
+  settings { base { ["OTHER_SWIFT_FLAGS"] { "-DCHILD" } } }
+}
+local replaced = (base) {
+  sources = new Listing<X.Source> { new { path = "Replacement" } }
+}
+local shared: X.Settings = new {
+  base { ["SWIFT_VERSION"] = "6.0" }
+}
+local specialized = (shared) {
+  configs { ["Debug"] { base { ["ENABLE_TESTABILITY"] = "YES" } } }
+}
+
+facts {
+  ["public module classes"] {
+    X.kind == "project"
+    X.schemaVersion == 2
+    Workspace.kind == "workspace"
+    Workspace.schemaVersion == 2
+  }
+  ["target amendments remain late bound"] {
+    base.name == "Core"
+    amended.name == "Renamed"
+    amended.settings.base["PRODUCT_BUNDLE_IDENTIFIER"] == "example.Renamed"
+    base.settings.base["PRODUCT_BUNDLE_IDENTIFIER"] == "example.Core"
+  }
+  ["listing append and replacement"] {
+    base.settings.base["OTHER_SWIFT_FLAGS"].toList() == List("$(inherited)")
+    amended.settings.base["OTHER_SWIFT_FLAGS"].toList() == List("$(inherited)", "-DCHILD")
+    replaced.sources.length == 1
+    replaced.sources[0].path == "Replacement"
+  }
+  ["shared settings specialization"] {
+    specialized.base["SWIFT_VERSION"] == "6.0"
+    specialized.configs["Debug"].base["ENABLE_TESTABILITY"] == "YES"
+    shared.configs.isEmpty
+  }
+}

@@ -4,3 +4,4 @@
 Examples/**/*.xcodeproj/
 Examples/**/*.xcworkspace/
 Examples/**/build/
+dist/

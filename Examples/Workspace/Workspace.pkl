@@ -1,4 +1,4 @@
-amends "../../Pkl/Workspace.pkl"
+amends "../../Pkl/xcproj/Workspace.pkl"
 
 name = "Modular"
 // Adding another Modules/*/Project.pkl automatically adds another Xcode project.

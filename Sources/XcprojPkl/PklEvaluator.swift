@@ -45,7 +45,10 @@ public struct PklEvaluator: Sendable {
     process.executableURL = url
     process.currentDirectoryURL = source.deletingLastPathComponent()
     process.arguments =
-      ["eval", "--format", "json", "--timeout", "60"]
+      [
+        "eval", "--format", "json", "--timeout", "60",
+        "--working-dir", source.deletingLastPathComponent().path,
+      ]
       + properties.flatMap { ["--property", $0] }
       + (expression.map { ["--expression", $0] } ?? []) + [source.path]
     process.standardOutput = output

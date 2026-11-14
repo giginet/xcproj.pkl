@@ -16,9 +16,12 @@ let package = Package(
     .target(
       name: "PklRuntimeResources",
       path: "Pkl",
-      exclude: ["Project.pkl", "Workspace.pkl"],
+      exclude: [
+        "xcproj/PklProject", "xcproj/Project.pkl", "xcproj/Workspace.pkl", "xcproj/README.md",
+        "xcproj/tests",
+      ],
       sources: ["RuntimeResources.swift"],
-      resources: [.copy("Internal")]
+      resources: [.copy("xcproj/Internal")]
     ),
     .target(
       name: "XcprojPkl",
