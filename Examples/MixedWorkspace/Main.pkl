@@ -1,0 +1,14 @@
+amends "@xcproj/Workspace.pkl"
+import "../Tool/Main.pkl" as Tool
+
+name = "Mixed"
+projects {
+  ["tool"] = Tool
+  ["legacy"] = module.importXcodeproj("Legacy.xcodeproj")
+}
+schemes {
+  ["Hello"] {
+    build { targets { new { target = "tool/hello" } } }
+    run = new { target = "tool/hello" }
+  }
+}

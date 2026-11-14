@@ -4,6 +4,15 @@ import "pkl:reflect"
 import "Internal/Snapshot.pkl" as Snapshot
 import "Internal/Validation.pkl" as Validation
 import "Internal/SchemeModel.pkl" as SchemeModel
+import "Internal/WorkspaceModel.pkl" as WorkspaceModel
+
+open class ExistingProject extends WorkspaceModel.ExistingProject {}
+typealias WorkspaceProject = *Project | WorkspaceModel.ExistingProject
+
+/// Reference an existing .xcodeproj without converting or modifying its contents.
+/// Relative paths are resolved against workspaceDir, including with --output-dir.
+/// In an amended workspace, use projects { ["key"] = module.importXcodeproj("App.xcodeproj") }.
+function importXcodeproj(value: String): ExistingProject = new { path = value }
 
 open class Scheme extends SchemeModel.Scheme {}
 open class BuildAction extends SchemeModel.BuildAction {}
@@ -20,7 +29,7 @@ kind: "workspace" = "workspace"
 schemaVersion: Int(this == 2) = 2
 name: String(!isEmpty)
 workspaceDir: String = "."
-projects: Mapping<String, Project>
+projects: Mapping<String, WorkspaceProject>
 schemes: Mapping<String, SchemeModel.Scheme>
 
 output {

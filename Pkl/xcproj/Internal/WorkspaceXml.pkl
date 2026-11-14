@@ -3,12 +3,16 @@ import "pkl:xml"
 import "Protocol.pkl" as W
 import "Paths.pkl" as P
 function document(s: W.Snapshot, facts: W.HostFacts): Dynamic =
+  let (projects = (new Mapping<String, String> {
+    for (p in s.projects) { [p.key] = "\(p.artifactId):bundle" }
+    for (p in s.existingProjects) { [p.key] = p.bundlePathId }
+  }).toMap())
   (xml.Element("Workspace")) {
     attributes { ["version"] = "1.0" }
-    for (p in s.projects) {
+    for (key in projects.keys.toList().sort()) {
       (xml.Element("FileRef")) {
         attributes {
-          ["location"] = "group:" + P.fromBundle(facts, "\(p.artifactId):bundle", "\(s.rootArtifactId):bundle")
+          ["location"] = "group:" + P.fromBundle(facts, projects[key], "\(s.rootArtifactId):bundle")
         }
       }
     }

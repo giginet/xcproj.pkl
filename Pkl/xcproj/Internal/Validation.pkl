@@ -4,6 +4,7 @@ import "ProjectModel.pkl" as Model
 import "Protocol.pkl" as W
 import "Paths.pkl" as Paths
 import "Schemes.pkl" as Schemes
+import "WorkspaceModel.pkl" as WorkspaceModel
 
 function check(condition: Boolean, message: String): Boolean = if (condition) true else throw(message)
 function name(value: String, context: String): Boolean =
@@ -73,9 +74,10 @@ function authorProject(p: Model): Boolean =
     }
   }).toList().every((v) -> v)
 
-function authorWorkspace(label: String, entries: Mapping<String, Model>): Boolean =
+function authorWorkspace(label: String, entries: Mapping<String, WorkspaceModel.WorkspaceProject>): Boolean =
   name(label, "workspace.name") && check(!entries.isEmpty, "Workspace must contain at least one project") &&
-  entries.toMap().every((k, p) -> check(!k.isEmpty, "Empty workspace project key") && authorProject(p))
+  entries.toMap().every((k, p) -> check(!k.isEmpty, "Empty workspace project key") &&
+    (if (p is Model) authorProject(p) else !p.path.isEmpty))
 
 function visit(key: String, graph: Map<String, List<String>>, complete: Set<String>, stack: List<String>): Set<String> =
   if (complete.contains(key)) complete
@@ -116,11 +118,18 @@ function project(p: W.ProjectInput, facts: W.HostFacts): Boolean =
 
 function snapshot(s: W.Snapshot, facts: W.HostFacts): Boolean =
   let (bundles = s.artifacts.filter((a) -> a.kind != "scheme").map((a) -> Paths.absolute(facts, a.bundlePathId)))
+  let (existingBundles = s.existingProjects.map((p) -> Paths.absolute(facts, p.bundlePathId)))
   (new Listing<Boolean> {
     check(s.protocolVersion == 1 && s.schemaVersion == 2 && facts.protocolVersion == 1, "Unsupported protocol or schemaVersion")
     check(s.paths.map((p) -> p.id).toSet() == facts.paths.keys, "HostFacts do not match Snapshot path requests")
     check(s.projects.map((p) -> Paths.absolute(facts, p.sourcePathId)).toSet().length == s.projects.length, "Duplicate project module")
     check(bundles.toSet().length == bundles.length, "Duplicate workspace/project output paths")
+    check(existingBundles.toSet().length == existingBundles.length, "Duplicate existing workspace project reference")
+    for (existing in existingBundles) {
+      for (output in bundles) {
+        check(existing != output && !Paths.nested(existing, output), "Existing project overlaps an output path: \(existing) and \(output)")
+      }
+    }
     for (i, a in bundles) {
       for (j, b in bundles) {
         when (j > i) { check(!Paths.nested(a, b), "Nested workspace/project output paths: \(a) and \(b)") }

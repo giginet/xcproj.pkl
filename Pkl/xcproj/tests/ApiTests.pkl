@@ -29,6 +29,14 @@ local shared: X.Settings = new {
 local specialized = (shared) {
   configs { ["Debug"] { base { ["ENABLE_TESTABILITY"] = "YES" } } }
 }
+local workspaceProjects: Mapping<String, Workspace.WorkspaceProject> = new {
+  ["Generated"] { name = "Inferred" }
+  ["Existing"] = Workspace.importXcodeproj("Vendor/Legacy.xcodeproj")
+}
+local amendedProjects = (workspaceProjects) {
+  ["Generated"] { name = "Amended" }
+  ["Existing"] { path = "Vendor/Other.xcodeproj" }
+}
 
 facts {
   ["public module classes"] {
@@ -36,6 +44,18 @@ facts {
     X.schemaVersion == 2
     Workspace.kind == "workspace"
     Workspace.schemaVersion == 2
+  }
+  ["existing project references"] {
+    Workspace.importXcodeproj("Vendor/Legacy.xcodeproj") is Workspace.ExistingProject
+    Workspace.importXcodeproj("Vendor/Legacy.xcodeproj").path == "Vendor/Legacy.xcodeproj"
+    Workspace.importXcodeproj("/tmp/Existing.xcodeproj/").path == "/tmp/Existing.xcodeproj/"
+  }
+  ["workspace project inference and amendments"] {
+    workspaceProjects["Generated"] is X
+    workspaceProjects["Generated"].name == "Inferred"
+    amendedProjects["Generated"].name == "Amended"
+    amendedProjects["Existing"].path == "Vendor/Other.xcodeproj"
+    workspaceProjects["Existing"].path == "Vendor/Legacy.xcodeproj"
   }
   ["target amendments remain late bound"] {
     base.name == "Core"

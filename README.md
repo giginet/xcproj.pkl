@@ -75,7 +75,7 @@ swift run xcprojgen validate MyWorkspace --entry Projects/Core/Project.pkl
 
 `--output-dir` (short form: `-o`) specifies the output directory. The entry-point Pkl module determines the bundle name and extension. A workspace with `name = "App"` generates `<output-dir>/App.xcworkspace`; a project generates `<output-dir>/App.xcodeproj`. Swift does not accept a bundle name or extension, or check the extension of the output argument. When `--entry` is specified, the selected Pkl module still determines the name and type.
 
-Each project in a workspace is written to its own `projectDir`, and workspace references are adjusted accordingly. Without `--output-dir`, the output is `workspaceDir/name.xcworkspace` for a workspace or `projectDir/name.xcodeproj` for a project. Relative output directories are resolved against the CLI working directory.
+Each generated project in a workspace is written to its own `projectDir`, and workspace references are adjusted accordingly. Existing project bundles remain in place. Without `--output-dir`, the output is `workspaceDir/name.xcworkspace` for a workspace or `projectDir/name.xcodeproj` for a project. Relative output directories are resolved against the CLI working directory.
 
 You can also pass `Project.pkl` or `Workspace.pkl` directly, or validate an existing `.xcworkspace`, `.xcodeproj`, or `project.xcproj`.
 
@@ -262,6 +262,29 @@ The CLI also canonicalizes the entry path before Pkl evaluation. Relative Pkl im
 
 Registering the same canonical project twice, or using duplicate or nested output paths, is an error. Use the typed `RemoteTargetDependency` and `ImportedProduct` classes for dependencies between projects, specifying the referenced target and product IDs explicitly.
 
+### Including existing Xcode projects
+
+`Workspace.importXcodeproj(path)` returns an `ExistingProject` reference for the workspace's `projects` mapping. It accepts an existing `.xcodeproj` bundle containing either JSON `project.xcproj` or legacy `project.pbxproj`. Mix these references with imported Pkl project modules, or use them for every workspace member:
+
+```pkl
+amends "@xcproj/Workspace.pkl"
+import "Projects/App/Project.pkl" as App
+
+name = "AppWorkspace"
+projects {
+  ["app"] = App
+  ["legacy"] = module.importXcodeproj("Vendor/Legacy.xcodeproj")
+}
+```
+
+Relative paths use `workspaceDir`; absolute paths are also accepted. Moving the workspace with `--output-dir` rebases its XML references. Existing project bundles are neither moved nor converted, and their files, schemes, and settings are never rewritten. Canonical paths are used to reject duplicate imports and collisions with generated output.
+
+Validation checks imported JSON projects with Apple's decoder and the same reference validation used for generated projects. For legacy projects, it checks the property list, project root, and target objects; this is structural validation, not full Xcode semantic validation. CLI project and target counts include both generated and existing members.
+
+Importing a bundle does not turn its targets into Pkl `Target` objects. Generated workspace schemes can reference generated targets; use the imported project's own shared schemes for its targets. Workspace membership alone does not create cross-project target dependencies.
+
+The [MixedWorkspace example](Examples/README.md#mixing-generated-and-existing-projects) combines a generated tool project with a checked-in legacy project and shared scheme.
+
 ## Path, ID, and output guarantees
 
 - Relative paths for sources, xcconfig files, and target `infoPlist` files use each project's `projectDir`. `infoPlist` must point to an existing file; `INFOPLIST_FILE` is rebased when output moves.
@@ -272,7 +295,7 @@ Registering the same canonical project twice, or using duplicate or nested outpu
 - IDs are the first 24 hexadecimal digits of the SHA-256 hash of a UTF-8 string containing the namespace, kind, and key, separated by NUL characters. Renaming a target preserves its ID as long as its key stays the same. Keep `idNamespace` fixed when renaming a project.
 - You can also specify custom `id` and `productId` values. Duplicate IDs are detected case-insensitively.
 - After validating all projects, `generate` checks every output destination before writing. It does not overwrite bundles containing a legacy `project.pbxproj`.
-- Only `project.xcproj`, `contents.xcworkspacedata`, and shared schemes declared in Pkl are updated. Other schemes and user settings are preserved, and files with identical bytes are not rewritten.
+- Only generated `project.xcproj`, `contents.xcworkspacedata`, and shared schemes declared in Pkl are updated. Imported project bundles remain read-only. Other schemes and user settings are preserved, and files with identical bytes are not rewritten.
 - Writes are atomic per file. Rollback of an entire workspace is not guaranteed, and projects removed from a workspace are not deleted automatically.
 
 ## Architecture
@@ -356,7 +379,7 @@ The [Advanced example](Examples/Advanced/README.md) demonstrates local package l
 
 Pkl checks model names, types, configuration references, dependencies, cycles, and source consistency. Swift then validates with Apple's XCSchema and checks references. Successful validation does not guarantee a successful build.
 
-Validation of existing workspaces supports groups and `group:`, `container:`, and `absolute:` references, detecting missing and duplicate entries. XML entities, nested workspaces, and legacy pbxproj files are unsupported. Write-specific checks for legacy bundles and output file/directory conflicts run before generation writes any files.
+Validation of existing workspaces supports groups and `group:`, `container:`, and `absolute:` references, detecting missing and duplicate entries. Both JSON and legacy project members are accepted; legacy validation is limited to property-list structure, the project root, and target objects. XML entities and nested workspaces are unsupported. Write-specific checks for legacy bundles and output file/directory conflicts run before generation writes any files.
 
 ```sh
 swift test

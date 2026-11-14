@@ -15,6 +15,7 @@ public struct GenerationPlan: Sendable {
     public let projectCount: Int
     public let targetCount: Int
     public var projects: [File] { files.filter(\.isProject) }
+    private let existingProjects: [URL]
 
     /// Check caller-supplied properties before dependency resolution or evaluation.
     public static func validateProperties(_ properties: [String]) throws {
@@ -75,6 +76,7 @@ public struct GenerationPlan: Sendable {
     static func accept(_ data: Data, manifest: InputManifest, facts: HostFacts) throws
         -> GenerationPlan
     {
+        try manifest.validate()
         let plan = try JSONDecoder().decode(WirePlan.self, from: data)
         guard plan.protocolVersion == 1, plan.rootArtifactId == manifest.rootArtifactId,
             plan.files.count == manifest.artifacts.count,
@@ -114,12 +116,24 @@ public struct GenerationPlan: Sendable {
         guard plan.projectCount == projects.count, plan.targetCount == targetCount else {
             throw ProjectError("Rendered plan counts do not match validated projects")
         }
+        let existingProjects = try manifest.existingProjects.map { project in
+            guard let path = facts.paths[project.bundlePathId] else {
+                throw ProjectError("Missing existing project path: \(project.key)")
+            }
+            return path.url
+        }
+        try validateExistingProjectPaths(existingProjects, files: files)
+        for project in existingProjects {
+            targetCount += try ProjectBundleValidator.validate(project)
+        }
         // Validate XML against this plan, before the referenced projects exist on disk.
         if let workspace = files.first(where: { !$0.isProject && !$0.isScheme }) {
             let references = try WorkspaceValidator.projectURLs(
                 data: workspace.data, workspace: workspace.bundle)
-            guard Set(references.map(\.path)) == Set(projects.map { $0.bundle.path }) else {
-                throw ProjectError("Workspace references do not match generated projects")
+            let expected = projects.map(\.bundle) + existingProjects
+            guard Set(references.map(\.path)) == Set(expected.map(\.path)) else {
+                throw ProjectError(
+                    "Workspace references do not match generated and existing projects")
             }
         }
         for scheme in files where scheme.isScheme {
@@ -140,11 +154,13 @@ public struct GenerationPlan: Sendable {
         let root = manifest.artifacts.first { $0.id == manifest.rootArtifactId }!
         return GenerationPlan(
             files: files, destination: facts.paths[root.bundlePathId]!.url,
-            projectCount: projects.count, targetCount: targetCount)
+            projectCount: projects.count + existingProjects.count, targetCount: targetCount,
+            existingProjects: existingProjects)
     }
 
     @discardableResult
     public func write() throws -> Bool {
+        try Self.validateExistingProjectPaths(existingProjects, files: files)
         for file in files {
             if file.isProject,
                 FileManager.default.fileExists(
@@ -161,6 +177,33 @@ public struct GenerationPlan: Sendable {
             if try writeIfChanged(file.data, to: file.destination) { changed = true }
         }
         return changed
+    }
+
+    private static func validateExistingProjectPaths(_ projects: [URL], files: [File]) throws {
+        let bundles = projects.map { canonicalFileURL($0).path }
+        guard Set(bundles).count == bundles.count else {
+            throw ProjectError("Duplicate existing project paths")
+        }
+        // A project document can itself be a symlink outside its bundle.
+        let inputs =
+            bundles
+            + projects.flatMap { project in
+                ["project.xcproj", "project.pbxproj"].map {
+                    canonicalFileURL(project.appendingPathComponent($0)).path
+                }
+            }
+        let outputs = Set(
+            files.flatMap {
+                [canonicalFileURL($0.bundle).path, canonicalFileURL($0.destination).path]
+            })
+        for input in inputs {
+            for output in outputs
+            where input == output || input.hasPrefix(output + "/") || output.hasPrefix(input + "/")
+            {
+                throw ProjectError(
+                    "Existing project overlaps an output path: \(input) and \(output)")
+            }
+        }
     }
 
     private static func validateScheme(_ scheme: File, projects: [File]) throws {

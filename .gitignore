@@ -4,4 +4,11 @@
 Examples/**/*.xcodeproj/
 Examples/**/*.xcworkspace/
 Examples/**/build/
+# Keep only the intentional existing-project fixture under version control.
+!Examples/MixedWorkspace/Legacy.xcodeproj/
+Examples/MixedWorkspace/Legacy.xcodeproj/**
+!Examples/MixedWorkspace/Legacy.xcodeproj/project.pbxproj
+!Examples/MixedWorkspace/Legacy.xcodeproj/xcshareddata/
+!Examples/MixedWorkspace/Legacy.xcodeproj/xcshareddata/xcschemes/
+!Examples/MixedWorkspace/Legacy.xcodeproj/xcshareddata/xcschemes/Legacy.xcscheme
 dist/

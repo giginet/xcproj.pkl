@@ -9,9 +9,14 @@ class Snapshot {
   kind: "project" | "workspace"
   rootArtifactId: String
   projects: List<ProjectInput>
+  existingProjects: List<ExistingProjectInput> = List()
   paths: List<PathRequest>
   artifacts: List<ArtifactRequest>
   schemes: List<SchemeInput>
+}
+class ExistingProjectInput {
+  key: String
+  bundlePathId: String
 }
 class SchemeInput {
   name: String

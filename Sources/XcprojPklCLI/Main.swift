@@ -175,12 +175,12 @@ struct Validate: ParsableCommand {
             let result = try WorkspaceValidator.validate(input)
             count = result.targetCount
             projectCount = result.projectCount
-        case "xcodeproj", "xcproj":
+        case "xcodeproj":
             projectCount = 1
-            let file =
-                input.pathExtension == "xcodeproj"
-                ? input.appendingPathComponent("project.xcproj") : input
-            count = try ProjectValidator.validate(data: Data(contentsOf: file))
+            count = try ProjectBundleValidator.validate(input)
+        case "xcproj":
+            projectCount = 1
+            count = try ProjectValidator.validate(data: Data(contentsOf: input))
         default:
             let plan = try evaluation.plan(
                 entryModule(input, entry: entry.entry), outputDirectory: output.url)
