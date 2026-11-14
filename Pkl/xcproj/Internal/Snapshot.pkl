@@ -3,6 +3,10 @@ import "pkl:reflect"
 import "ProjectModel.pkl" as Model
 import "Protocol.pkl" as W
 import "Builtins.pkl" as B
+import "Projection.pkl" as Projection
+import "SchemaRender.pkl" as R
+import "Schemes.pkl" as Schemes
+import "SchemeModel.pkl" as SchemeModel
 
 function ref(identifier: String, relation: String): W.PathBase = new { kind = "request"; id = identifier; location = relation }
 function uri(value: String): W.PathBase = new { kind = "uri"; uri = value }
@@ -20,19 +24,31 @@ function configFiles(prefix: String, entries: Mapping<String, String>): Map<Stri
 function target(p: Model, prefix: String, k: String, t: Model.Target): W.TargetInput = new {
   key = k
   name = t.name
+  kind = t.kind
   type = t.type
   platform = t.platform
   id = t.id ?? B.stableId(p.idNamespace, "target", k)
   productId = t.productId ?? B.stableId(p.idNamespace, "product", k)
+  productName = B.productName(t)
+  productFileType = B.productFileType(t)
+  hasProduct = t.kind == "native" && t.product == null
+  details = Projection.target(p, t)
+  buildPhases = t.buildPhases?.toList()?.map((v) -> R.buildPhase(v))
+  preBuildScripts = t.preBuildScripts.toList().map((v) -> R.buildPhase(v))
+  postBuildScripts = t.postBuildScripts.toList().map((v) -> R.buildPhase(v))
   settings = B.settings(p.configs, t.settings, B.targetDefaults(p, t), true)
   configFiles = module.configFiles(targetId(prefix, k), t.configFiles)
+  configurationDetails = Projection.configurations(t.configurationDetails)
   infoPlistPathId = if (t.infoPlist != null) "\(targetId(prefix, k)):infoPlist" else null
   sources = t.sources.toList().mapIndexed((i, s) -> new W.SourceInput {
     pathId = "\(targetId(prefix, k)):source:\(i)"
     kind = s.kind
     excludes = s.excludes.toList()
   })
-  dependencies = t.dependencies.toList().map((d) -> new W.DependencyInput { target = d.target; link = d.link; embed = d.embed }).distinct
+  dependencies = t.dependencies.toList().map((d) -> new W.DependencyInput {
+    target = d.target; package = d.package; product = d.product; productType = d.productType
+    platforms = d.platforms.toList(); link = d.link; embed = d.embed
+  }).distinct
 }
 
 function project(p: Model, k: String): W.ProjectInput = new {
@@ -45,6 +61,16 @@ function project(p: Model, k: String): W.ProjectInput = new {
   defaultConfiguration = p.defaultConfiguration
   settings = B.settings(p.configs, p.settings, Map("ALWAYS_SEARCH_USER_PATHS", "NO"), false)
   configFiles = module.configFiles(projectId(k), p.configFiles)
+  configurationDetails = Projection.configurations(p.configurationDetails)
+  details = Projection.project(p)
+  productsGroup = if (p.productsGroup != null) R.namePath(p.productsGroup!!) else null
+  files = p.files.toList().map((v) -> R.reference(v))
+  packages = p.packages.toMap().keys.toList().sort().map((packageKey) -> new W.PackageInput {
+    key = packageKey
+    identity = Projection.packageIdentity(p.packages[packageKey])
+    pathId = if (p.packages[packageKey] is Model.LocalSwiftPackage) "\(projectId(k)):package:\(packageKey.sha256.take(16))" else null
+    value = R.swiftPackage(p.packages[packageKey])
+  })
   targets = p.targets.toMap().keys.toList().sort().map((key) -> target(p, projectId(k), key, p.targets[key]))
 }
 
@@ -57,6 +83,11 @@ function projectPaths(p: Model, k: String): List<W.PathRequest> =
     path("\(prefix):file", ref("\(prefix):bundle", "self"), "project.xcproj", "any", false, "\(k) output file")
     for (config, value in p.configFiles) {
       path(configId(prefix, config), ref("\(prefix):root", "self"), value, "file", true, "\(k).configFiles.\(config)")
+    }
+    for (key, package in p.packages) {
+      when (package is Model.LocalSwiftPackage) {
+        path("\(prefix):package:\(key.sha256.take(16))", ref("\(prefix):root", "self"), package.path, "directory", true, "\(k).packages.\(key)")
+      }
     }
     for (key in p.targets.toMap().keys.toList().sort()) {
       when (p.targets[key].infoPlist != null) {
@@ -78,21 +109,23 @@ function single(p: Model): W.Snapshot = new {
   kind = "project"
   rootArtifactId = projectId("project")
   projects = List(project(p, "project"))
-  paths = projectPaths(p, "project")
-  artifacts = List(artifact(projectId("project"), "project"))
+  schemes = Schemes.projectEntries(p.schemes, "project", projectId("project"))
+  paths = projectPaths(p, "project") + Schemes.paths(schemes)
+  artifacts = List(artifact(projectId("project"), "project")) + Schemes.artifacts(schemes)
 }
 
-function workspace(label: String, directory: String, source: String, entries: Mapping<String, Model>): W.Snapshot =
+function workspace(label: String, directory: String, source: String, entries: Mapping<String, Model>, schemeEntries: Mapping<String, SchemeModel.Scheme>): W.Snapshot =
   let (keys = entries.toMap().keys.toList().sort())
   new {
     kind = "workspace"
     rootArtifactId = "workspace"
     projects = keys.map((k) -> project(entries[k], k))
+    schemes = keys.flatMap((k) -> Schemes.projectEntries(entries[k].schemes, k, projectId(k))) + Schemes.workspaceEntries(schemeEntries)
     paths = keys.flatMap((k) -> projectPaths(entries[k], k)) + List(
       path("workspace:module", uri(source), "", "file", true, "Workspace module"),
       path("workspace:root", ref("workspace:module", "parent"), directory, "directory", true, "workspaceDir"),
       path("workspace:bundle", ref("workspace:root", "self"), "\(label).xcworkspace", "any", false, "Workspace output"),
       path("workspace:file", ref("workspace:bundle", "self"), "contents.xcworkspacedata", "any", false, "Workspace output file")
-    )
-    artifacts = keys.map((k) -> artifact(projectId(k), "project")) + List(artifact("workspace", "workspace"))
+    ) + Schemes.paths(schemes)
+    artifacts = keys.map((k) -> artifact(projectId(k), "project")) + List(artifact("workspace", "workspace")) + Schemes.artifacts(schemes)
   }

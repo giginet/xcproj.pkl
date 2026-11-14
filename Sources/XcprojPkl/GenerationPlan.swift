@@ -7,7 +7,8 @@ public struct GenerationPlan: Sendable {
         public let data: Data
         public let destination: URL
         public let isProject: Bool
-        public var bundle: URL { destination.deletingLastPathComponent() }
+        public let isScheme: Bool
+        public let bundle: URL
     }
     public let files: [File]
     public let destination: URL
@@ -89,29 +90,45 @@ public struct GenerationPlan: Sendable {
                 throw ProjectError("Rendered artifact destination or kind mismatch: \(artifact.id)")
             }
             let destination = try localFileURL(file.destinationUri)
-            let expectedName = file.kind == .project ? "project.xcproj" : "contents.xcworkspacedata"
-            guard destination.lastPathComponent == expectedName,
-                destination.deletingLastPathComponent().path
-                    == facts.paths[artifact.bundlePathId]?.absolutePath
-            else { throw ProjectError("Invalid artifact filename: \(destination.path)") }
+            let bundle = facts.paths[artifact.bundlePathId]!.url
+            if file.kind == .scheme {
+                guard destination.pathExtension == "xcscheme",
+                    destination.deletingLastPathComponent().path
+                        == bundle.appendingPathComponent("xcshareddata/xcschemes").path
+                else { throw ProjectError("Invalid scheme filename: \(destination.path)") }
+            } else {
+                let expectedName =
+                    file.kind == .project ? "project.xcproj" : "contents.xcworkspacedata"
+                guard destination.lastPathComponent == expectedName,
+                    destination.deletingLastPathComponent().path == bundle.path
+                else { throw ProjectError("Invalid artifact filename: \(destination.path)") }
+            }
             let bytes = Data(file.text.utf8)
             if file.kind == .project { targetCount += try ProjectValidator.validate(data: bytes) }
             files.append(
-                File(data: bytes, destination: destination, isProject: file.kind == .project))
+                File(
+                    data: bytes, destination: destination, isProject: file.kind == .project,
+                    isScheme: file.kind == .scheme, bundle: bundle))
         }
         let projects = files.filter(\.isProject)
         guard plan.projectCount == projects.count, plan.targetCount == targetCount else {
             throw ProjectError("Rendered plan counts do not match validated projects")
         }
         // Validate XML against this plan, before the referenced projects exist on disk.
-        if let workspace = files.first(where: { !$0.isProject }) {
+        if let workspace = files.first(where: { !$0.isProject && !$0.isScheme }) {
             let references = try WorkspaceValidator.projectURLs(
                 data: workspace.data, workspace: workspace.bundle)
             guard Set(references.map(\.path)) == Set(projects.map { $0.bundle.path }) else {
                 throw ProjectError("Workspace references do not match generated projects")
             }
         }
-        let bundles = files.map { $0.bundle.path }
+        for scheme in files where scheme.isScheme {
+            try validateScheme(scheme, projects: projects)
+        }
+        guard Set(files.map { $0.destination.path }).count == files.count else {
+            throw ProjectError("Duplicate output file paths")
+        }
+        let bundles = files.filter { !$0.isScheme }.map { $0.bundle.path }
         guard Set(bundles).count == bundles.count else {
             throw ProjectError("Duplicate output paths")
         }
@@ -144,5 +161,62 @@ public struct GenerationPlan: Sendable {
             if try writeIfChanged(file.data, to: file.destination) { changed = true }
         }
         return changed
+    }
+
+    private static func validateScheme(_ scheme: File, projects: [File]) throws {
+        let reader = SchemeXMLReader()
+        let parser = XMLParser(data: scheme.data)
+        parser.shouldResolveExternalEntities = false
+        parser.delegate = reader
+        guard parser.parse(), reader.root == "Scheme", !reader.hasEntityDeclaration else {
+            throw ProjectError("Invalid scheme XML: \(scheme.destination.path)")
+        }
+        var targetIDs: [String: Set<String>] = [:]
+        for project in projects {
+            let json = try JSONSerialization.jsonObject(with: project.data) as? [String: Any]
+            let targets = json?["targets"] as? [[String: Any]] ?? []
+            targetIDs[project.bundle.path] = Set(targets.compactMap { $0["id"] as? String })
+        }
+        for reference in reader.references {
+            guard let container = reference["ReferencedContainer"],
+                container.hasPrefix("container:"),
+                let identifier = reference["BlueprintIdentifier"]
+            else { throw ProjectError("Invalid scheme buildable reference") }
+            let path = String(container.dropFirst("container:".count))
+            let project = canonicalFileURL(
+                URL(fileURLWithPath: path, relativeTo: scheme.bundle.deletingLastPathComponent()))
+            guard targetIDs[project.path]?.contains(identifier) == true else {
+                throw ProjectError("Scheme references an unknown project or target: \(container)")
+            }
+        }
+    }
+}
+
+private final class SchemeXMLReader: NSObject, XMLParserDelegate {
+    var root: String?
+    var references: [[String: String]] = []
+    var hasEntityDeclaration = false
+
+    func parser(
+        _ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?,
+        qualifiedName qName: String?, attributes attributeDict: [String: String]
+    ) {
+        if root == nil { root = elementName }
+        if elementName == "BuildableReference" { references.append(attributeDict) }
+    }
+
+    func parser(
+        _ parser: XMLParser, foundInternalEntityDeclarationWithName name: String, value: String?
+    ) {
+        hasEntityDeclaration = true
+        parser.abortParsing()
+    }
+
+    func parser(
+        _ parser: XMLParser, foundExternalEntityDeclarationWithName name: String, publicID: String?,
+        systemID: String?
+    ) {
+        hasEntityDeclaration = true
+        parser.abortParsing()
     }
 }

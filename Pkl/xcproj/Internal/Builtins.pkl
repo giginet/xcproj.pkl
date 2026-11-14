@@ -8,29 +8,62 @@ function stableId(namespace: String, kind: String, key: String): String =
 function values(base: Mapping<String, Model.SettingValue>): Wire.Settings =
   base.toMap().mapValues((k, v) -> if (v is String) v else v.toList())
 
+function productName(t: Model.Target): String = t.productName ??
+  (if (t.type == "library.static") "lib\(t.name).a"
+  else if (t.type == "library.dynamic") "lib\(t.name).dylib"
+  else t.name + (if (t.type?.startsWith("application") ?? false) ".app"
+    else if (t.type?.contains("extension") ?? false)
+      (if (t.type == "driver-extension") ".dext" else if (t.type == "system-extension") ".systemextension" else if (t.type == "kernel-extension") ".kext" else ".appex")
+    else if (t.type?.startsWith("framework") ?? false) ".framework"
+    else if (t.type == "xcframework") ".xcframework"
+    else if (t.type?.startsWith("bundle.") ?? false) ".xctest"
+    else if (t.type == "bundle") ".bundle"
+    else if (t.type == "xpc-service") ".xpc"
+    else if (t.type == "instruments-package") ".instrpkg"
+    else if (t.type == "metal-library") ".metallib" else ""))
+
+function productFileType(t: Model.Target): String = t.productFileType ??
+  (if (t.type?.startsWith("application") ?? false) "wrapper.application"
+  else if (List("app-extension", "extensionkit-extension", "watchkit-extension", "watchkit2-extension", "app-extension.messages", "app-extension.messages-sticker-pack").contains(t.type)) "wrapper.app-extension"
+  else if (t.type?.startsWith("framework") ?? false) "wrapper.framework"
+  else if (t.type == "xcframework") "wrapper.xcframework"
+  else if (t.type == "library.static") "archive.ar"
+  else if (t.type == "library.dynamic") "compiled.mach-o.dylib"
+  else if (t.type == "tool") "compiled.mach-o.executable"
+  else if (t.type == "metal-library") "archive.metal-library"
+  else "wrapper.cfbundle")
+
+function sdk(platform: String): String =
+  Map("macOS", "macosx", "iOS", "iphoneos", "tvOS", "appletvos", "watchOS", "watchos", "visionOS", "xros", "driverKit", "driverkit")[platform]
+function platforms(platform: String): List<String> =
+  Map("macOS", List("macosx"), "iOS", List("iphoneos", "iphonesimulator"), "tvOS", List("appletvos", "appletvsimulator"), "watchOS", List("watchos", "watchsimulator"), "visionOS", List("xros", "xrsimulator"), "driverKit", List("driverkit"))[platform]
+function deploymentSetting(platform: String): String =
+  Map("macOS", "MACOSX_DEPLOYMENT_TARGET", "iOS", "IPHONEOS_DEPLOYMENT_TARGET", "tvOS", "TVOS_DEPLOYMENT_TARGET", "watchOS", "WATCHOS_DEPLOYMENT_TARGET", "visionOS", "XROS_DEPLOYMENT_TARGET", "driverKit", "DRIVERKIT_DEPLOYMENT_TARGET")[platform]
+
 function targetDefaults(p: Model, t: Model.Target): Wire.Settings =
+  if (t.kind != "native") Map() else
   (new Mapping<String, Wire.SettingValue> {
     ["PRODUCT_NAME"] = "$(TARGET_NAME)"
     ["SWIFT_VERSION"] = "6.0"
-    ["SDKROOT"] = if (t.platform == "macOS") "macosx" else "iphoneos"
-    ["SUPPORTED_PLATFORMS"] = if (t.platform == "macOS") List("macosx") else List("iphoneos", "iphonesimulator")
+    ["SDKROOT"] = sdk(t.platform)
+    ["SUPPORTED_PLATFORMS"] = platforms(t.platform)
     when (t.deploymentTarget != null) {
-      [if (t.platform == "macOS") "MACOSX_DEPLOYMENT_TARGET" else "IPHONEOS_DEPLOYMENT_TARGET"] = t.deploymentTarget!!
+      [deploymentSetting(t.platform)] = t.deploymentTarget!!
     }
     when (t.platform == "iOS") { ["TARGETED_DEVICE_FAMILY"] = "1,2" }
-    when (t.type != "tool") {
+    when (!List("tool", "library.static", "library.dynamic", "metal-library").contains(t.type)) {
       ["GENERATE_INFOPLIST_FILE"] = if (t.infoPlist == null) "YES" else "NO"
       ["PRODUCT_BUNDLE_IDENTIFIER"] = "\(p.idNamespace).\(t.name.replaceAll(Regex("[^A-Za-z0-9.-]"), "-"))"
     }
-    when (t.type == "framework") {
+    when (List("framework", "framework.static").contains(t.type)) {
       ["DEFINES_MODULE"] = "YES"
       ["SKIP_INSTALL"] = "YES"
       ["DYLIB_INSTALL_NAME_BASE"] = "@rpath"
     }
-    when (t.type == "application") {
+    when (t.type?.startsWith("application") ?? false) {
       ["LD_RUNPATH_SEARCH_PATHS"] = List("$(inherited)", if (t.platform == "macOS") "@executable_path/../Frameworks" else "@executable_path/Frameworks")
     }
-    when (t.type == "app-extension") {
+    when (List("app-extension", "extensionkit-extension", "watchkit-extension", "watchkit2-extension", "app-extension.messages", "app-extension.messages-sticker-pack").contains(t.type)) {
       ["APPLICATION_EXTENSION_API_ONLY"] = "YES"
       ["SKIP_INSTALL"] = "YES"
       ["LD_RUNPATH_SEARCH_PATHS"] = List("$(inherited)", if (t.platform == "macOS") "@executable_path/../Frameworks" else "@executable_path/Frameworks", if (t.platform == "macOS") "@executable_path/../../../../Frameworks" else "@executable_path/../../Frameworks")
@@ -44,7 +77,7 @@ function settings(configs: Mapping<String, String>, s: Model.Settings, defaults:
   let (base = defaults + values(s.base))
   base + (new Mapping<String, Wire.SettingValue> {
     for (config in configs.toMap().keys.toList().sort()) {
-      for (key, value in defaults + (if (target) Map("SWIFT_OPTIMIZATION_LEVEL", if (configs[config] == "debug") "-Onone" else "-O") else Map()) + values(s.base) + configValues(s, config)) {
+      for (key, value in defaults + (if (target) Map("SWIFT_OPTIMIZATION_LEVEL", if (configs[config] == "debug") "-Onone" else "-O", "ONLY_ACTIVE_ARCH", if (configs[config] == "debug") "YES" else "NO") else Map()) + values(s.base) + configValues(s, config)) {
         when (!base.containsKey(key) || base[key] != value) {
           ["\(key)[config=\(config)]"] = value
         }

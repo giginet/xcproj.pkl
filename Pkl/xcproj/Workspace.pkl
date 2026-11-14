@@ -3,16 +3,29 @@ import "Project.pkl"
 import "pkl:reflect"
 import "Internal/Snapshot.pkl" as Snapshot
 import "Internal/Validation.pkl" as Validation
+import "Internal/SchemeModel.pkl" as SchemeModel
+
+open class Scheme extends SchemeModel.Scheme {}
+open class BuildAction extends SchemeModel.BuildAction {}
+open class BuildTarget extends SchemeModel.BuildTarget {}
+open class RunAction extends SchemeModel.RunAction {}
+open class TestAction extends SchemeModel.TestAction {}
+open class TestTarget extends SchemeModel.TestTarget {}
+open class ProfileAction extends SchemeModel.ProfileAction {}
+open class AnalyzeAction extends SchemeModel.AnalyzeAction {}
+open class ArchiveAction extends SchemeModel.ArchiveAction {}
+open class ExecutionAction extends SchemeModel.ExecutionAction {}
 
 kind: "workspace" = "workspace"
 schemaVersion: Int(this == 2) = 2
 name: String(!isEmpty)
 workspaceDir: String = "."
 projects: Mapping<String, Project>
+schemes: Mapping<String, SchemeModel.Scheme>
 
 output {
   renderer = new JsonRenderer {}
   value = if (module.schemaVersion == 2 && module.kind == "workspace" && Validation.authorWorkspace(name, projects))
-    Snapshot.workspace(module.name, module.workspaceDir, reflect.moduleOf(module).uri, module.projects)
+    Snapshot.workspace(module.name, module.workspaceDir, reflect.moduleOf(module).uri, module.projects, module.schemes)
   else throw("Invalid workspace")
 }

@@ -1,53 +1,53 @@
 # xcproj.pkl
 
-`xcprojgen`はPklからXcodeのJSON形式 `project.xcproj` と `xcworkspace` を生成・検証するSwift CLIです。Main.pklの型に応じて、単一のxcodeprojまたは複数Projectをまとめたxcworkspaceを生成できます。
+`xcprojgen` is a Swift CLI that generates and validates Xcode JSON projects (`project.xcproj`) and workspaces (`xcworkspace`) from Pkl. Depending on the type of `Main.pkl`, it generates either a single xcodeproj or an xcworkspace containing multiple projects.
 
-v2では、Targetの再利用にPklのクラス継承、Projectの再利用にmodule classと`amends`、共有設定にimportとオブジェクトのamendmentを使います。設定解決、既定値、安定ID、Xcode JSON・Workspace XMLの構築はPklが担当します。
+Version 2 uses Pkl class inheritance to reuse targets, module classes and `amends` to reuse projects, and imports and object amendments to share settings. Pkl handles settings resolution, defaults, stable IDs, and construction of Xcode JSON and workspace XML.
 
-## 必要なもの
+## Requirements
 
-- macOS 14以降、Swift 6.1以降。
-- Pkl 0.33以降。実行ファイルの探索順は `--pkl`、`PKL_EXEC`、`PATH`。
-- JSON形式のプロジェクトを扱えるXcode。検証環境はXcode 27.3 beta 1。
+- macOS 14 or later and Swift 6.1 or later.
+- Pkl 0.33 or later. Executables are located in this order: `--pkl`, `PKL_EXEC`, then `PATH`.
+- An Xcode version that supports JSON projects. Tested with Xcode 27.3 beta 1.
 
-Pklは外部プロセスとして起動します。既存のxcproj/workspaceを検証する場合はPklのインストールは不要です。
+Pkl runs as an external process. You do not need Pkl installed to validate an existing xcproj or workspace.
 
-サンプルはすべて `Main.pkl` を入口とし、`Examples/PklProject` でcheckout内のパッケージに依存します。[Examplesの説明](Examples/README.md)に、Swift 6のFrameworkテンプレート・アプリ・Notification Service Extensionの構成を記載しています。
+All examples use `Main.pkl` as their entry point and depend on the package in this checkout through `Examples/PklProject`. See the [examples guide](Examples/README.md) for the Swift 6 framework templates, app, and Notification Service Extension.
 
-## 実行
+## Usage
 
 ```sh
 swift build
 swift run xcprojgen --help
 
-# Pkl CLIの実行ファイルとバージョンを確認。
+# Check the Pkl CLI executable and version.
 swift run xcprojgen doctor
 
-# Main.pklを入口とするWorkspaceの雛形を生成（既定値）。
+# Create a workspace scaffold with Main.pkl as its entry point (the default).
 swift run xcprojgen init MyWorkspace --type workspace
 
-# 単一xcodeproj用の雛形。
+# Create a scaffold for a single xcodeproj.
 swift run xcprojgen init MyLibrary --type project
 
-# 依存パッケージを解決し、完成するJSON/XMLを検証。
+# Resolve package dependencies and validate the resulting JSON/XML.
 swift run xcprojgen validate MyWorkspace
 
-# MyWorkspace/Workspace.xcworkspace と配下のxcodeprojを生成。
+# Generate MyWorkspace/Workspace.xcworkspace and its xcodeproj bundles.
 swift run xcprojgen generate MyWorkspace
 
-# Workspaceの出力先を指定。相対パスはCLI実行時の作業ディレクトリ基準。
+# Set the workspace output directory. Relative paths use the CLI working directory.
 swift run xcprojgen validate MyWorkspace --output-dir /tmp/generated
 swift run xcprojgen generate MyWorkspace --output-dir /tmp/generated
 # => /tmp/generated/Workspace.xcworkspace
 
-# 既存の生成物を読み取り専用で検証。Pklは不要。
+# Validate existing output without modifying it. Pkl is not required.
 swift run xcprojgen validate /tmp/generated/Workspace.xcworkspace
 
-# Pklのexternal property。複数回指定できます。
+# Set a Pkl external property. This option can be repeated.
 swift run xcprojgen generate MyWorkspace --property flavor=debug
 ```
 
-`init <dir>`は通信やPklの起動を行わず、既存ファイルを上書きしません。次の雛形を作成します。
+`init <dir>` does not access the network, launch Pkl, or overwrite existing files. It creates the following scaffold:
 
 ```text
 MyWorkspace/
@@ -60,24 +60,24 @@ MyWorkspace/
     Tests/CoreTests.swift
 ```
 
-`PklProject`はこのリポジトリの将来のGitHub Release (`v0.1.0`) にある `xcproj@0.1.0` をdependencyとして指定します。現時点ではReleaseは未配布なので、そのままのURIによる依存取得は配布開始後に可能になります。開発中は後述のlocal dependency、または `Scripts/package-pkl.sh --skip-publish-check --install` によるローカルキャッシュを利用できます。
+`PklProject` declares a dependency on `xcproj@0.1.0` from a future GitHub release (`v0.1.0`) of this repository. That release has not been published yet, so the URI will become usable once distribution begins. During development, use a local dependency as described below, or populate the local cache with `Scripts/package-pkl.sh --skip-publish-check --install`.
 
-`Main.pkl`が共通のエントリーポイントです。`amends "@xcproj/Workspace.pkl"` ならWorkspace、`amends "@xcproj/Project.pkl"` ならProjectを生成します。`init --type`は作成する雛形の選択にだけ使い、生成時にはPklの型で対象を決めます。単一Projectの雛形では `Main.pkl`、`Sources/`、`Tests/` をルートに置きます。
+`Main.pkl` is the common entry point. Use `amends "@xcproj/Workspace.pkl"` to generate a workspace or `amends "@xcproj/Project.pkl"` to generate a project. `init --type` only selects the scaffold; generation determines the output from the Pkl type. A single-project scaffold places `Main.pkl`, `Sources/`, and `Tests/` at the root.
 
-別の入口を使う場合は、ディレクトリ基準の `--entry` を明示します。既定の `Main.pkl` が存在しない場合はエラーになり、`Project.pkl` や `Workspace.pkl` の自動探索はしません。
+To use another entry point, specify `--entry` relative to the input directory. A missing default `Main.pkl` is an error; the CLI does not search for `Project.pkl` or `Workspace.pkl` automatically.
 
 ```sh
 swift run xcprojgen generate MyWorkspace --entry Projects/Core/Project.pkl --output-dir /tmp/generated
 swift run xcprojgen validate MyWorkspace --entry Projects/Core/Project.pkl
 ```
 
-`validate` / `generate` は最寄りの `PklProject` に対して `pkl project resolve` を実行してから評価します。`validate`も依存lockfileの `PklProject.deps.json` を作成・更新することがありますが、生成するxcworkspace/xcodeprojは書き込みません。lockfileは利用側のリポジトリで管理してください。
+`validate` and `generate` run `pkl project resolve` for the nearest `PklProject` before evaluation. `validate` may create or update the dependency lockfile, `PklProject.deps.json`, but does not write the generated xcworkspace or xcodeproj. Commit the lockfile in the consuming repository.
 
-`--output-dir`（短縮形 `-o`）は出力先ディレクトリです。バンドル名と拡張子は入口のPklが決めます。Workspace型で `name = "App"` なら `<output-dir>/App.xcworkspace`、Project型なら `<output-dir>/App.xcodeproj` を生成します。Swift側でバンドル名・拡張子を指定する処理や、出力指定の拡張子チェックはありません。`--entry`を指定した場合も、選択したPklの名前と型で決まります。
+`--output-dir` (short form: `-o`) specifies the output directory. The entry-point Pkl module determines the bundle name and extension. A workspace with `name = "App"` generates `<output-dir>/App.xcworkspace`; a project generates `<output-dir>/App.xcodeproj`. Swift does not accept a bundle name or extension, or check the extension of the output argument. When `--entry` is specified, the selected Pkl module still determines the name and type.
 
-Workspace内の各Projectはそれぞれの `projectDir` に出力し、Workspaceからの参照を調整します。`--output-dir`省略時はWorkspaceの `workspaceDir/name.xcworkspace`、Projectの `projectDir/name.xcodeproj` です。相対的な出力先ディレクトリはCLIの作業ディレクトリ基準です。
+Each project in a workspace is written to its own `projectDir`, and workspace references are adjusted accordingly. Without `--output-dir`, the output is `workspaceDir/name.xcworkspace` for a workspace or `projectDir/name.xcodeproj` for a project. Relative output directories are resolved against the CLI working directory.
 
-`Project.pkl` / `Workspace.pkl` の直接指定と、既存 `.xcworkspace` / `.xcodeproj` / `project.xcproj` の検証にも対応しています。
+You can also pass `Project.pkl` or `Workspace.pkl` directly, or validate an existing `.xcworkspace`, `.xcodeproj`, or `project.xcproj`.
 
 ```sh
 swift run xcprojgen validate Examples/Workspace
@@ -85,13 +85,13 @@ swift run xcprojgen generate Examples/Tool --output-dir /tmp/generated
 swift run xcprojgen validate /tmp/generated/Tool.xcodeproj
 ```
 
-`--pkl /path/to/pkl`は `doctor` / `validate` / `generate` で使えます。探索順は `--pkl`、`PKL_EXEC`、`PATH` です。`PKL_EXEC`は引数を含まない実行ファイルのパスです。`doctor`は実行ファイルとバージョンを表示し、未導入・実行失敗・対応外バージョンの場合は非ゼロで終了します。未導入・対応外の場合は [Pkl公式Installationガイド](https://pkl-lang.org/main/current/pkl-cli/index.html#installation) を案内します。自動インストールは行いません。
+`--pkl /path/to/pkl` is available for `doctor`, `validate`, and `generate`. The lookup order is `--pkl`, `PKL_EXEC`, then `PATH`. `PKL_EXEC` must be an executable path without arguments. `doctor` prints the executable and version, and exits with a nonzero status if Pkl is missing, fails to run, or has an unsupported version. For a missing or unsupported installation, it links to the [official Pkl installation guide](https://pkl-lang.org/main/current/pkl-cli/index.html#installation). It does not install Pkl automatically.
 
-`--pkl`・`--property`・`--entry`・`--output-dir`は既存の生成物の検証には指定できません。`xcproj.internal.`というproperty名は内部処理用に予約しています。
+`--pkl`, `--property`, `--entry`, and `--output-dir` cannot be used when validating existing output. Property names beginning with `xcproj.internal.` are reserved for internal use.
 
-## Pkl Projectと配布パッケージ
+## Pkl project and package distribution
 
-配布用のPkl Projectは `Pkl/xcproj/` です。SwiftPMのbridgeはその外に置いています。
+The distributable Pkl project lives in `Pkl/xcproj/`. The SwiftPM bridge sits outside it.
 
 ```text
 Pkl/
@@ -107,27 +107,27 @@ Scripts/package-pkl.sh
 ```
 
 ```sh
-# APIテストと既存公開バージョンのチェックを実行し、配布物を作成。
+# Run API tests, check existing published versions, and build the package.
 Scripts/package-pkl.sh
 
-# ネットワークを使わないローカル作成。
+# Build locally without network access.
 Scripts/package-pkl.sh --skip-publish-check
 
-# Pklの実行ファイルと出力先を指定。
+# Specify the Pkl executable and output directory.
 Scripts/package-pkl.sh --pkl /path/to/pkl --skip-publish-check -o /tmp/pkl-dist
 ```
 
-スクリプトは公式の `pkl project package` を使います。既定では `dist/pkl/xcproj@0.1.0/` にZip、パッケージメタデータ、両者のSHA-256 sidecarを生成します。APIテストもpackagerが実行し、テスト・manifest・SwiftソースをZipへ含めません。[公式CLI仕様](https://pkl-lang.org/main/current/pkl-cli/index.html#pkl-project-package)
+The script uses the official `pkl project package` command. By default, it writes a ZIP archive, package metadata, and SHA-256 sidecar files for both to `dist/pkl/xcproj@0.1.0/`. The packager also runs the API tests and excludes tests, manifests, and Swift sources from the ZIP. See the [official CLI documentation](https://pkl-lang.org/main/current/pkl-cli/index.html#pkl-project-package).
 
-バージョン、package URI、ZipのURLは `Pkl/xcproj/PklProject` に集約しています。現在のURLは将来のGitHub Releases配布を想定した値です。リポジトリはprivateで配布先は未設定のため、公開時には利用者が取得できるmetadata/ZipのURLへ設定してください。スクリプトはアップロードしません。
+The version, package URI, and ZIP URL are defined in `Pkl/xcproj/PklProject`. The current URLs are intended for future distribution through GitHub Releases. The repository is private and distribution is not yet configured; before publishing, set metadata and ZIP URLs that consumers can access. The script does not upload anything.
 
-利用側は `PklProject` のdependenciesでパッケージを指定し、`pkl project resolve` 後に `amends "@xcproj/Project.pkl"` や `import "@xcproj/Project.pkl" as X` を使えます。checkoutを使う場合は `dependencies { ["xcproj"] = import("/path/to/xcproj.pkl/Pkl/xcproj/PklProject") }` というlocal dependencyも使えます。[依存とlocal dependencyの公式仕様](https://pkl-lang.org/main/current/language-reference/index.html#local-dependencies)
+Consumers declare the package in their `PklProject` dependencies, run `pkl project resolve`, and then use `amends "@xcproj/Project.pkl"` or `import "@xcproj/Project.pkl" as X`. To use a checkout, declare a local dependency with `dependencies { ["xcproj"] = import("/path/to/xcproj.pkl/Pkl/xcproj/PklProject") }`. See the [official documentation on local dependencies](https://pkl-lang.org/main/current/language-reference/index.html#local-dependencies).
 
-具体例と配布先の配置は [パッケージREADME](Pkl/xcproj/README.md) に記載しています。
+See the [package README](Pkl/xcproj/README.md) for examples and the distribution layout.
 
-## Targetクラスと共有設定
+## Target classes and shared settings
 
-`Pkl/xcproj/Project.pkl`は`open module`であり、Target、Settingsなどの公開型を含みます。次の例はリポジトリ直下に置くファイルです。
+`Pkl/xcproj/Project.pkl` is an `open module` exposing public types such as `Target` and `Settings`. The following examples are files placed at the repository root.
 
 `Settings.pkl`:
 
@@ -188,37 +188,37 @@ targets {
 }
 ```
 
-`extends`は型・共通モジュールの拡張、`amends`は既存モジュールの値の変更、`(base) { ... }`はオブジェクトの変更です。共通クラスは未完成のまま定義できますが、生成するTargetでは`name`、`type`、`platform`が必須です。
+`extends` extends a type or shared module, `amends` changes values in an existing module, and `(base) { ... }` amends an object. Shared classes may remain incomplete, but generated native targets require `name` and either `type` or `fullProductType`. The default `platform` is `macOS`.
 
-作者クラスに追加したプロパティは、生成用データへの明示的な投影で除外されます。テンプレート用パラメータには型付きプロパティや`hidden`、実装用の受け手には`local target = this`を使えます。
+Properties added to user-defined classes are excluded by the explicit projection into generation data. Use typed or `hidden` properties for template parameters, and `local target = this` to capture the receiver for implementation details.
 
-## Amendmentの規則
+## Amendment rules
 
-Pkl自身の規則を使います。
+The standard Pkl rules apply.
 
-| 記述 | 動作 |
+| Syntax | Behavior |
 |---|---|
-| `settings = Common.compiler` | 設定オブジェクトを置換 |
-| `settings { base { ["KEY"] = "value" } }` | 継承した設定の一部を変更 |
-| `sources { new { path = "Extra" } }` | 継承したListingへ追加 |
-| `sources = new Listing<Source> { new { path = "Only" } }` | Listing全体を置換 |
-| `settings { base { ["OTHER_SWIFT_FLAGS"] { "-DNEW" } } }` | 既存値がListingなら追加 |
+| `settings = Common.compiler` | Replace the settings object |
+| `settings { base { ["KEY"] = "value" } }` | Amend part of the inherited settings |
+| `sources { new { path = "Extra" } }` | Append to the inherited Listing |
+| `sources = new Listing<Source> { new { path = "Only" } }` | Replace the entire Listing |
+| `settings { base { ["OTHER_SWIFT_FLAGS"] { "-DNEW" } } }` | Append when the existing value is a Listing |
 
-`sources = new { ... }`という型を省略した記法も、継承した値のamendmentになります。全置換には上記のようにListing型を明示します。
+The inferred-type syntax `sources = new { ... }` also amends the inherited value. To replace it completely, specify the Listing type explicitly as shown above.
 
-Pklは単一継承です。独立した設定を合成する場合は、Settingsを受け取って変更後のSettingsを返す関数で明示します。spreadはdeep mergeではありません。
+Pkl uses single inheritance. To combine independent settings, use an explicit function that accepts and returns `Settings`. Spreading does not perform a deep merge.
 
-Settingsは`base`と`configs`を持ち、`configs`の値には`base`だけを定義できます。再帰的なconfigurationは作れません。Xcode向けの最終優先度は次のとおりです。
+`Settings` contains `base` and `configs`. Values in `configs` can define only `base`; configurations cannot be nested recursively. The final precedence for Xcode is:
 
-`組み込みbase < 組み込みconfiguration < user base < user configuration`
+`built-in base < built-in configuration < user base < user configuration`
 
-userの値はPklで継承を評価した後の設定です。`SWIFT_OPTIMIZATION_LEVEL = "-Osize"`をbaseで指定すれば、組み込みDebug/Release設定にも優先します。configuration固有の差分は`KEY[config=Debug]`へ変換します。`$(inherited)`などXcodeのマクロはそのまま保持します。
+User values are the settings after Pkl evaluates inheritance. Setting `SWIFT_OPTIMIZATION_LEVEL = "-Osize"` in `base` overrides even the built-in Debug and Release settings. Configuration-specific differences are converted to `KEY[config=Debug]`. Xcode macros such as `$(inherited)` are preserved.
 
-v1の`targetTemplates`、`templates`、`settingGroups`、`groups`、`templateAttributes`は廃止しました。`${...}`の独自展開もありません。v2スキーマは旧フィールドを拒否します。
+The v1 fields `targetTemplates`, `templates`, `settingGroups`, `groups`, and `templateAttributes` have been removed. There is no custom `${...}` expansion. The v2 schema rejects these legacy fields.
 
-## 多数のProjectを持つWorkspace
+## Workspaces with many projects
 
-共通のProjectモジュールでFrameworkとTestsを定義し、各Projectが`amends`する例を`Examples/Workspace`に同梱しています。
+`Examples/Workspace` demonstrates a shared project module that defines a framework and tests, with each project using `amends` to customize it.
 
 ```text
 Examples/Workspace/
@@ -230,14 +230,14 @@ Examples/Workspace/
   Main.pkl
 ```
 
-各Project.pkl:
+Each `Project.pkl`:
 
 ```pkl
 amends "../../Shared/FrameworkProject.pkl"
 name = "Catalog"
 ```
 
-Main.pkl:
+`Main.pkl`:
 
 ```pkl
 amends "@xcproj/Workspace.pkl"
@@ -250,62 +250,113 @@ swift run xcprojgen validate Examples/Workspace
 swift run xcprojgen generate Examples/Workspace
 swift run xcprojgen validate Examples/Workspace/Modular.xcworkspace
 
-# 各Projectは単独でも同じ内容で生成できます。
+# Each project can also be generated independently with identical contents.
 swift run xcprojgen generate Examples/Workspace/Modules/Catalog/Project.pkl
 ```
 
-Projectは自分の`projectDir/name.xcodeproj`、Workspaceは`workspaceDir/name.xcworkspace`へ生成します。Workspace入力に対する`--output-dir`はWorkspaceの出力先ディレクトリを変更し、名前はWorkspaceの`name`から決まります。
+Projects are generated at `projectDir/name.xcodeproj`, and workspaces at `workspaceDir/name.xcworkspace`. For workspace input, `--output-dir` changes the workspace output directory; its name comes from the workspace's `name`.
 
-Workspace内でimportしたProjectをamendしても、パスは元のProject.pklがあるディレクトリを基準にします。モジュール自体がsymlinkの場合もcanonicalなモジュールの親を使い、単独生成とWorkspace経由で統一します。Projectモジュールはローカルのfile URIに限定しています。共有テンプレート・設定にはPklのimportを使えます。
+Amending an imported project inside a workspace preserves paths relative to the original `Project.pkl` directory. If the module itself is a symlink, the canonical module's parent directory is used, keeping standalone and workspace generation consistent. Project modules must use local file URIs. Shared templates and settings can use Pkl imports.
 
-CLIに指定したentryはPkl評価前にもcanonical化します。WorkspaceからimportしたProject内のPkl相対import/readはPkl自身のURI解決に従うため、ファイルsymlinkをimportする場合はリンク側のURIからも解決できる配置が必要です。ソース・xcconfigのパス基準とは別の規則です。
+The CLI also canonicalizes the entry path before Pkl evaluation. Relative Pkl imports and reads inside projects imported by a workspace follow Pkl's own URI resolution. When importing a file symlink, those references must therefore also resolve from the symlink URI. This is separate from how source and xcconfig paths are resolved.
 
-同じcanonical Projectの二重登録、出力先の重複・入れ子はエラーです。Project間の依存解決はまだ対応していません。
+Registering the same canonical project twice, or using duplicate or nested output paths, is an error. Use the typed `RemoteTargetDependency` and `ImportedProduct` classes for dependencies between projects, specifying the referenced target and product IDs explicitly.
 
-## パス・ID・出力の契約
+## Path, ID, and output guarantees
 
-- ソース・xcconfig・Targetの`infoPlist`の相対パスは各Projectの`projectDir`基準です。`infoPlist`は存在するファイルを指定し、生成先の移動時に`INFOPLIST_FILE`をリベースします。
-- sourceの`kind`は`folder`または`file`。folderの`excludes`は実在する正確な相対パスで、globは使えません。
-- 同一Target内のsourceの入れ子は拒否します。同一実体を指すsourceはsymlinkを解決して統合し、excludesを集合化します。
-- 複数Targetが同じsourceを持つ場合は、1つの参照とTargetごとのmembershipを生成します。
-- TargetのMappingキーが安定した識別子です。依存の`target`にもこのキーを指定します。
-- IDはnamespace・kind・keyをNULで区切ったUTF-8文字列のSHA-256の先頭24桁です。Targetの表示名を変えてもキーが同じならIDを保ちます。Project名を変える際は`idNamespace`を固定してください。
-- 任意の`id` / `productId`も指定できます。IDの重複は大文字・小文字を区別せず検出します。
-- 全Projectの検証後、generateは全出力先を事前確認してから書き込みます。legacy `project.pbxproj`のあるbundleを上書きしません。
-- 更新するのは`project.xcproj`と`contents.xcworkspacedata`のみ。Schemeやユーザー設定を保持し、同一bytesなら書き換えません。
-- 書き込みはファイル単位でatomicです。Workspace全体のrollbackは保証しません。Workspaceから外れたProjectも自動削除しません。
+- Relative paths for sources, xcconfig files, and target `infoPlist` files use each project's `projectDir`. `infoPlist` must point to an existing file; `INFOPLIST_FILE` is rebased when output moves.
+- A source's `kind` is either `folder` or `file`. A folder's `excludes` must contain exact relative paths that exist; globs are not supported.
+- Nested sources within a target are rejected. Sources pointing to the same filesystem object are merged after symlink resolution, with their excludes combined as a set.
+- When multiple targets share a source, one reference is generated with separate membership for each target.
+- The target Mapping key is its stable identifier. Dependencies use this key in their `target` field.
+- IDs are the first 24 hexadecimal digits of the SHA-256 hash of a UTF-8 string containing the namespace, kind, and key, separated by NUL characters. Renaming a target preserves its ID as long as its key stays the same. Keep `idNamespace` fixed when renaming a project.
+- You can also specify custom `id` and `productId` values. Duplicate IDs are detected case-insensitively.
+- After validating all projects, `generate` checks every output destination before writing. It does not overwrite bundles containing a legacy `project.pbxproj`.
+- Only `project.xcproj`, `contents.xcworkspacedata`, and shared schemes declared in Pkl are updated. Other schemes and user settings are preserved, and files with identical bytes are not rewritten.
+- Writes are atomic per file. Rollback of an entire workspace is not guaranteed, and projects removed from a workspace are not deleted automatically.
 
-## 構成
+## Architecture
 
 ```text
-Pkl/xcproj/Project.pkl、Workspace.pkl      作者向けmodule class
-Pkl/xcproj/Internal/ProjectModel.pkl     作者向け型の基底定義
-Pkl/xcproj/Internal/Snapshot.pkl         評価済み設定とパス要求の投影
-Pkl/xcproj/Internal/Builtins.pkl         標準設定、configuration、ID
-Pkl/xcproj/Internal/Validation.pkl       モデル・グラフ検証
-Pkl/xcproj/Internal/Xcode.pkl            完成Xcode JSONの構築
-Pkl/xcproj/Internal/WorkspaceXml.pkl     XML構築
-Pkl/xcproj/Internal/Render.pkl           完成ファイルを含む生成計画
-Sources/XcprojPkl/HostFacts.swift  OSパス情報の取得
-Sources/XcprojPkl/GenerationPlan.swift  実行、最終検証、出力制御
-Sources/XcprojPkl/PklTool.swift  Pklの評価・依存解決・バージョン確認
+Pkl/xcproj/Project.pkl, Workspace.pkl    Public module classes
+Pkl/xcproj/Internal/ProjectModel.pkl     Base definitions for authoring types
+Pkl/xcproj/Internal/SchemaTypes.pkl      Types and unions matching Apple's schema
+Pkl/xcproj/Internal/SchemaRender.pkl     Projection from typed values to native JSON
+Pkl/xcproj/Internal/Snapshot.pkl         Projection of evaluated settings and path requests
+Pkl/xcproj/Internal/Builtins.pkl         Default settings, configurations, and IDs
+Pkl/xcproj/Internal/Validation.pkl       Model and graph validation
+Pkl/xcproj/Internal/Xcode.pkl            Final Xcode JSON construction
+Pkl/xcproj/Internal/WorkspaceXml.pkl     Workspace XML construction
+Pkl/xcproj/Internal/Schemes.pkl          Shared scheme reference resolution and XML construction
+Pkl/xcproj/Internal/Render.pkl           Generation plan containing complete output files
+Sources/XcprojPkl/HostFacts.swift        Filesystem path information
+Sources/XcprojPkl/GenerationPlan.swift   Execution, final validation, and output control
+Sources/XcprojPkl/PklTool.swift          Pkl evaluation, dependency resolution, and version checks
 ```
 
-ユーザーモジュールを一度評価して固定Snapshotを作り、Swiftがsymlink・存在・種別の情報を補った後、内部Render.pklを評価します。生成計画の評価はWorkspace全体でPklプロセス2回です。CLIはその前に依存解決のためのPklプロセスを1回起動します（PklProjectがある場合）。2回目にユーザーモジュールを再importしません。SwiftはTargetやSettingsの作者モデルをdecodeせず、完成したJSON/XMLも書き換えません。
+The user module is evaluated once to produce a fixed snapshot. Swift then supplies symlink, existence, and file-kind information before evaluating the internal `Render.pkl`. Evaluating a generation plan takes two Pkl processes for the entire workspace. The CLI launches one additional Pkl process beforehand to resolve dependencies when a `PklProject` exists. The second evaluation does not re-import user modules. Swift neither decodes the authoring models for targets and settings nor rewrites the completed JSON/XML.
 
-Swift側に残すのはCLI、Pklプロセスの起動、OS上のパス情報、Apple XCSchemaと既存成果物の参照検証、ファイル書き込みです。Targetの継承・設定の合成・ID計算・JSON/XML構築はPkl側にあります。既存成果物の検証はPklを使わないため、SwiftのProjectValidator / WorkspaceValidatorが担当します。
+Swift handles the CLI, Pkl process execution, filesystem path information, validation with Apple's XCSchema, reference validation for existing output, and file writes. Pkl handles target inheritance, settings composition, ID calculation, and JSON/XML construction. Since validating existing output does not use Pkl, Swift's `ProjectValidator` and `WorkspaceValidator` perform that validation.
 
-Swiftライブラリからは `PklTool` を共通の実行窓口として使います。生成計画は `GenerationPlan.compile(source:tool:properties:outputDirectory:)` で作成します。
+In the Swift library, `PklTool` is the common interface for execution. Create generation plans with `GenerationPlan.compile(source:tool:properties:outputDirectory:)`.
 
-内部PklはSwiftPMのresource bundleに含めています。実行ファイルを移動する場合は`xcproj-pkl_PklRuntimeResources.bundle`も同じディレクトリへ配置してください。
+The internal Pkl modules are included in a SwiftPM resource bundle. When moving the executable, place `xcproj-pkl_PklRuntimeResources.bundle` in the same directory.
 
-## 対応範囲と検証
+## Supported features and validation
 
-対応するproduct typeは`application`、`app-extension`、`framework`、`bundle`、`bundle.unit-test`、`tool`です。platformはiOS/macOS、toolはmacOSのみです。依存は同じProject内に限定し、linkはFramework、embedはapplicationからFrameworkまたはApp Extensionを許可します。App Extensionの依存指定には`link = false; embed = true`を使います。
+Typed Pkl classes cover projects, targets, packages, build phases, build rules, and file references from Apple's `xcode-project-format` 0.1.0. See the [schema coverage reference](Docs/SchemaCoverage.md) for upstream mappings, path handling, and constraints.
 
-モデル上の名前・型・configuration参照・依存先・循環・sourceの整合性をPklで検査します。さらにSwiftでAppleのXCSchemaと参照検証を行います。`validate`の成功はビルド成功を保証しません。
+`TargetKind`, `ProductType`, `Platform`, and `BuildPhaseKind` are named string unions. `Platform` supports `iOS`, `macOS`, `tvOS`, `watchOS`, `visionOS`, and `driverKit`, generating the corresponding SDK and deployment target settings. Known product types include apps, extensions, frameworks, libraries, and test bundles. Custom types use `fullProductType` with `productName` and `productFileType`. File types and platform filters remain extensible strings, as defined by Apple.
 
-既存Workspaceの検証はGroup、`group:`、`container:`、`absolute:`参照に対応し、欠落・重複を検出します。XML entity、ネストWorkspace、旧pbxprojは対象外です。書き込み固有のlegacy検出や出力先file/directory競合はgenerate時に事前確認します。
+`kind = "aggregate"` and `kind = "external-build-system"` are also supported. External targets require `buildToolPath`. For dependencies within a project, `dependencies.target` refers to a Mapping key; Swift package dependencies specify `package` and `product`. References to another project use `RemoteTargetDependency` and `ImportedProduct`. To embed an App Extension, specify `link = false; embed = true`.
+
+`productName` is the product filename, including its extension, used in file references and schemes. If you change it, also set build settings such as `PRODUCT_NAME` so the actual output name matches. `productName` is also required when `product` refers to an existing file reference. ExtensionKit, System, Driver, and Kernel Extensions use different embedding destinations from regular App Extensions, so declare their destinations explicitly with `CopyFilesBuildPhase` and membership.
+
+### Swift packages, build scripts, and schemes
+
+```pkl
+packages {
+  ["collections"] = new RemoteSwiftPackage {
+    repository = "https://github.com/apple/swift-collections.git"
+    version { kind = "up-to-next-major-version"; value = "1.1.0" }
+  }
+  ["support"] = new LocalSwiftPackage { path = "Packages/Support" }
+}
+targets {
+  ["app"] {
+    name = "App"; type = "application"; platform = "iOS"
+    dependencies { new { package = "collections"; product = "Collections" } }
+    postBuildScripts {
+      new {
+        name = "Record Build"
+        script = #"printf '%s\n' "$PRODUCT_NAME" > "$SCRIPT_OUTPUT_FILE_0""#
+        outputPaths { "$(DERIVED_FILE_DIR)/build-name.txt" }
+      }
+    }
+  }
+}
+schemes {
+  ["App"] {
+    build { targets { new { target = "app" } } }
+    run = new { target = "app" }
+    profile = new { target = "app" }
+    analyze = new {}
+    archive = new {}
+  }
+}
+```
+
+Package Mapping keys are aliases for use in Pkl. Xcode package reference names are derived from the last component of the repository URL or path, preserving case and removing `.git`. They are distinct from `Package.name` in `Package.swift`. Local package paths are relative to `projectDir` and are rebased for `--output-dir`. Remote version requirements support `revision`, `branch`, `version`, `version-range`, `up-to-next-minor-version`, and `up-to-next-major-version`; ranges also require `maximum`. Package traits, platform filters, and build tool plugins are supported.
+
+`preBuildScripts` and `postBuildScripts` run before and after the generated build phases. An explicit `buildPhases` value replaces the default phase Listing and preserves the specified order. Scripts support input/output paths, file lists, dependency files, unconditional execution, and other options. These paths can contain Xcode build setting macros.
+
+Schemes are generated at `xcshareddata/xcschemes/<name>.xcscheme`. They support Build, Run, Test, Profile, Analyze, and Archive actions, launch arguments, environment variables, and pre/post scripts for actions. Target references use the target key within a project, or `project-key/target-key` within a workspace. For example: `test = new { targets { new { target = "tests" } }; codeCoverage = true }`. Scheme names, targets, and configurations are validated, and schemes outside the generation plan are preserved.
+
+The [Advanced example](Examples/Advanced/README.md) demonstrates local package linking, build scripts, and shared schemes with an actual build.
+
+Pkl checks model names, types, configuration references, dependencies, cycles, and source consistency. Swift then validates with Apple's XCSchema and checks references. Successful validation does not guarantee a successful build.
+
+Validation of existing workspaces supports groups and `group:`, `container:`, and `absolute:` references, detecting missing and duplicate entries. XML entities, nested workspaces, and legacy pbxproj files are unsupported. Write-specific checks for legacy bundles and output file/directory conflicts run before generation writes any files.
 
 ```sh
 swift test
@@ -313,21 +364,22 @@ PKL_EXEC="$(command -v pkl)" swift test
 PKL_EXEC="$(command -v pkl)" bash Scripts/smoke-test.sh
 PKL_EXEC="$(command -v pkl)" bash Scripts/workspace-smoke-test.sh
 PKL_EXEC="$(command -v pkl)" bash Scripts/ios-smoke-test.sh
+PKL_EXEC="$(command -v pkl)" bash Scripts/advanced-smoke-test.sh
 ```
 
-Pklを利用する統合テストは`PKL_EXEC`がない場合skipされます。統合テストではネイティブ継承、設定優先度、symlink、100 Projects / 200 Targets、Pkl起動回数、配布先へのresource移動を確認します。Swiftのみのテストは既存形式の検証とOS・出力制御を確認します。
+Integration tests that use Pkl are skipped when `PKL_EXEC` is not set. They cover native inheritance, settings precedence, symlinks, 100 projects / 200 targets, Pkl process counts, and relocating resources for distribution. Swift-only tests cover validation of existing formats, filesystem behavior, and output control.
 
-共有Schemeはまだ生成しないため、WorkspaceサンプルのTestsはProjectのTargetを直接指定してビルドします。Apple CLIは検証環境では`xcrun xcodeproj`です。
+The Workspace example builds tests by specifying project targets directly. The Advanced example builds through a generated shared scheme. In the tested environment, Apple's CLI is `xcrun xcodeproj`.
 
-## Swiftの整形
+## Swift formatting
 
-`xcrun swift-format`を使います。`.swift-format` は `xcrun swift-format dump-configuration` の全設定を出力したもので、`indentation.spaces` と `tabWidth` を4に指定しています。`init` が作成するSwiftソースも4スペースです。
+Use `xcrun swift-format`. `.swift-format` contains the full output of `xcrun swift-format dump-configuration`, with `indentation.spaces` and `tabWidth` set to 4. Swift sources created by `init` also use four spaces.
 
 ```sh
 git ls-files -z -- '*.swift' | xargs -0 xcrun swift-format format --in-place --configuration .swift-format
 git ls-files -z -- '*.swift' | xargs -0 xcrun swift-format lint --strict --configuration .swift-format
 ```
 
-`.codex/hooks.json` の `PostToolUse` hookは、編集・パッチ・シェルコマンドの完了後に変更されたSwiftファイルを整形します。対象はstaged・unstaged・未追跡のSwiftファイルで、Gitのignore対象とsymlinkは含めません。ファイルを自動でstageすることはありません。
+The `PostToolUse` hook in `.codex/hooks.json` formats changed Swift files after edits, patches, and shell commands. It covers staged, unstaged, and untracked Swift files, excluding files ignored by Git and symlinks. It does not stage files automatically.
 
-初回利用時はCodexの `/hooks`（デスクトップアプリではSettings > Hooks）で、このリポジトリのhookを確認して信頼してください。新規・変更されたhookは信頼されるまで実行されません。[公式Hooks仕様](https://learn.chatgpt.com/docs/hooks)
+Before first use, review and trust this repository's hook in Codex via `/hooks` (Settings > Hooks in the desktop app). New or modified hooks do not run until trusted. See the [official hooks documentation](https://learn.chatgpt.com/docs/hooks).

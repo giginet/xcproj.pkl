@@ -1,0 +1,256 @@
+module xcproj.Schemes
+import "pkl:xml"
+import "SchemeModel.pkl" as M
+import "Protocol.pkl" as W
+import "Paths.pkl" as P
+
+function identifier(s: W.SchemeInput): String = "\(s.containerArtifactId):scheme:\(s.name.sha256.take(16))"
+
+function projectEntries(entries: Mapping<String, M.Scheme>, owner: String, container: String): List<W.SchemeInput> =
+  entries.toMap().keys.toList().sort().map((key) -> new W.SchemeInput {
+    name = key; containerArtifactId = container; ownerProjectKey = owner; definition = entries[key]
+  })
+function workspaceEntries(entries: Mapping<String, M.Scheme>): List<W.SchemeInput> =
+  entries.toMap().keys.toList().sort().map((key) -> new W.SchemeInput {
+    name = key; containerArtifactId = "workspace"; ownerProjectKey = null; definition = entries[key]
+  })
+function paths(entries: List<W.SchemeInput>): List<W.PathRequest> = entries.map((s) -> new W.PathRequest {
+  id = "\(identifier(s)):file"
+  base = new { kind = "request"; id = "\(s.containerArtifactId):bundle"; location = "self" }
+  path = "xcshareddata/xcschemes/\(s.name).xcscheme"
+  expectedKind = "any"; mustExist = false; context = "Scheme \(s.name) output"
+})
+function artifacts(entries: List<W.SchemeInput>): List<W.ArtifactRequest> = entries.map((s) -> new W.ArtifactRequest {
+  id = identifier(s); kind = "scheme"
+  bundlePathId = "\(s.containerArtifactId):bundle"; filePathId = "\(identifier(s)):file"
+})
+
+function execution(raw: Dynamic): M.ExecutionAction = new {
+  title = raw.title; script = raw.script; environmentTarget = raw.toMap().getOrNull("environmentTarget")
+}
+function actions(raw: Listing<Dynamic>): Listing<M.ExecutionAction> = new { for (a in raw) { execution(a) } }
+function arguments(raw: Listing<String>): Listing<String> = new { for (a in raw) { a as String } }
+function environment(raw: Dynamic): Mapping<String, String> = new { for (k, v in raw.toMap()) { [k] = v as String } }
+function buildTarget(raw: Dynamic): M.BuildTarget = raw.toTyped(M.BuildTarget)
+function testTarget(raw: Dynamic): M.TestTarget = raw.toTyped(M.TestTarget)
+function build(raw: Dynamic): M.BuildAction = new {
+  targets = new { for (t in raw.targets) { buildTarget(t) } }
+  parallelizeBuild = raw.parallelizeBuild; buildImplicitDependencies = raw.buildImplicitDependencies
+  preActions = actions(raw.preActions); postActions = actions(raw.postActions)
+}
+function run(raw: Dynamic): M.RunAction = new {
+  configuration = raw.configuration; target = raw.target
+  arguments = module.arguments(raw.arguments); environment = module.environment(raw.environment)
+  preActions = actions(raw.preActions); postActions = actions(raw.postActions)
+}
+function test(raw: Dynamic): M.TestAction = new {
+  configuration = raw.configuration
+  targets = new { for (t in raw.targets) { testTarget(t) } }
+  arguments = module.arguments(raw.arguments); environment = module.environment(raw.environment)
+  inheritLaunchArguments = raw.inheritLaunchArguments; codeCoverage = raw.codeCoverage
+  preActions = actions(raw.preActions); postActions = actions(raw.postActions)
+}
+function profile(raw: Dynamic): M.ProfileAction = new {
+  configuration = raw.configuration; target = raw.target
+  arguments = module.arguments(raw.arguments); environment = module.environment(raw.environment)
+  preActions = actions(raw.preActions); postActions = actions(raw.postActions)
+}
+function analyze(raw: Dynamic): M.AnalyzeAction = new {
+  configuration = raw.configuration; preActions = actions(raw.preActions); postActions = actions(raw.postActions)
+}
+function archive(raw: Dynamic): M.ArchiveAction = new {
+  configuration = raw.configuration; preActions = actions(raw.preActions); postActions = actions(raw.postActions)
+  revealArchiveInOrganizer = raw.revealArchiveInOrganizer
+}
+function definition(raw: Dynamic): M.Scheme = new {
+  build = module.build(raw.build)
+  run = if (raw.toMap().containsKey("run")) module.run(raw.run) else null
+  test = if (raw.toMap().containsKey("test")) module.test(raw.test) else null
+  profile = if (raw.toMap().containsKey("profile")) module.profile(raw.profile) else null
+  analyze = if (raw.toMap().containsKey("analyze")) module.analyze(raw.analyze) else null
+  archive = if (raw.toMap().containsKey("archive")) module.archive(raw.archive) else null
+}
+function decode(raw: Dynamic): W.SchemeInput = new {
+  name = raw.name; containerArtifactId = raw.containerArtifactId
+  ownerProjectKey = raw.toMap().getOrNull("ownerProjectKey")
+  definition = module.definition(raw.definition)
+}
+
+class ResolvedTarget {
+  project: W.ProjectInput
+  target: W.TargetInput
+}
+function resolve(s: W.SchemeInput, reference: String, snapshot: W.Snapshot): ResolvedTarget =
+  let (localMatches = snapshot.projects.filter((p) -> p.key == s.ownerProjectKey)
+    .flatMap((p) -> p.targets.filter((t) -> t.key == reference)
+      .map((t) -> new ResolvedTarget { project = p; target = t })))
+  if (!localMatches.isEmpty) localMatches.first
+  else
+    let (matches = snapshot.projects.flatMap((p) ->
+      if (reference.startsWith(p.key + "/"))
+        p.targets.filter((t) -> t.key == reference.drop(p.key.length + 1))
+          .map((t) -> new ResolvedTarget { project = p; target = t })
+      else List()))
+    if (matches.length == 1) matches.first
+    else if (matches.isEmpty) throw("Scheme \(s.name): unknown target '\(reference)'")
+    else throw("Scheme \(s.name): ambiguous target reference '\(reference)'")
+function project(s: W.SchemeInput, reference: String, snapshot: W.Snapshot): W.ProjectInput = resolve(s, reference, snapshot).project
+function target(s: W.SchemeInput, reference: String, snapshot: W.Snapshot): W.TargetInput = resolve(s, reference, snapshot).target
+function configured(s: M.Scheme): List<M.ConfiguredAction> =
+  List(s.run, s.test, s.profile, s.analyze, s.archive).filterNonNull()
+function executions(s: M.Scheme): List<M.ExecutionAction> =
+  s.build.preActions.toList() + s.build.postActions.toList() + configured(s).flatMap((a) -> a.preActions.toList() + a.postActions.toList())
+function references(s: M.Scheme): List<String> =
+  s.build.targets.toList().map((t) -> t.target) +
+  (if (s.run != null) List(s.run!!.target) else List()) +
+  (if (s.test != null) s.test!!.targets.toList().map((t) -> t.target) else List()) +
+  (if (s.profile != null) List(s.profile!!.target) else List()) +
+  executions(s).map((a) -> a.environmentTarget).filterNonNull()
+function actionReferences(a: M.ConfiguredAction, s: M.Scheme): List<String> =
+  (if (a is M.RunAction) List(a.target)
+   else if (a is M.TestAction) a.targets.toList().map((t) -> t.target)
+   else s.build.targets.toList().map((t) -> t.target)) +
+  (a.preActions.toList() + a.postActions.toList()).map((e) -> e.environmentTarget).filterNonNull()
+function check(condition: Boolean, message: String): Boolean = if (condition) true else throw(message)
+function validate(snapshot: W.Snapshot, facts: W.HostFacts): Boolean =
+  (new Listing<Boolean> {
+    for (s in snapshot.schemes) {
+      check(s.name.matches(Regex("[A-Za-z0-9_][A-Za-z0-9_. -]*")), "Invalid scheme name '\(s.name)'")
+      check(!s.definition.build.targets.isEmpty, "Scheme \(s.name): build.targets must not be empty")
+      for (ref in references(s.definition)) {
+        check(s.ownerProjectKey != null || ref.contains("/"), "Scheme \(s.name): workspace target references require project-key/target-key")
+        check(!target(s, ref, snapshot).id.isEmpty, "Scheme \(s.name): invalid target")
+      }
+      for (action in configured(s.definition)) {
+        for (ref in actionReferences(action, s.definition)) {
+          check(project(s, ref, snapshot).configurations.containsKey(action.configuration), "Scheme \(s.name): unknown configuration '\(action.configuration)' for target '\(ref)'")
+        }
+        when (action is M.RunAction) {
+          check(target(s, action.target, snapshot).kind == "native", "Scheme \(s.name): run/profile target '\(action.target)' must have a product")
+        }
+      }
+      when (s.definition.test != null) {
+        for (t in s.definition.test!!.targets) {
+          check(List("bundle.unit-test", "bundle.ui-testing").contains(target(s, t.target, snapshot).type), "Scheme \(s.name): test target '\(t.target)' must be a test bundle")
+        }
+      }
+    }
+  }).toList().every((v) -> v)
+
+function yes(value: Boolean): String = if (value) "YES" else "NO"
+/// XML normalizes literal attribute whitespace. Preserve script/argument bytes
+/// using numeric references after the standard renderer has escaped XML syntax.
+function render(s: W.SchemeInput, snapshot: W.Snapshot, facts: W.HostFacts): String =
+  (new xml.Renderer {}).renderDocument(document(s, snapshot, facts))
+    .replaceAllMapped(Regex(#""[^"]*""#), (match) -> match.value
+      .replaceAll("\n", "&#10;").replaceAll("\r", "&#13;").replaceAll("\t", "&#9;"))
+function buildable(s: W.SchemeInput, reference: String, snapshot: W.Snapshot, facts: W.HostFacts): Dynamic =
+  let (p = project(s, reference, snapshot))
+  let (t = target(s, reference, snapshot))
+  (xml.Element("BuildableReference")) {
+    attributes {
+      ["BuildableIdentifier"] = "primary"; ["BlueprintIdentifier"] = t.id
+      ["BuildableName"] = if (t.kind == "native") t.productName else t.name; ["BlueprintName"] = t.name
+      ["ReferencedContainer"] = "container:" + P.fromBundle(facts, "\(p.artifactId):bundle", "\(s.containerArtifactId):bundle")
+    }
+  }
+function executionElements(label: String, entries: Listing<M.ExecutionAction>, s: W.SchemeInput, snapshot: W.Snapshot, facts: W.HostFacts): Dynamic =
+  (xml.Element(label)) {
+    for (a in entries) {
+      (xml.Element("ExecutionAction")) {
+        attributes { ["ActionType"] = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction" }
+        (xml.Element("ActionContent")) {
+          attributes { ["title"] = a.title; ["scriptText"] = a.script }
+          when (a.environmentTarget != null) {
+            (xml.Element("EnvironmentBuildable")) { buildable(s, a.environmentTarget!!, snapshot, facts) }
+          }
+        }
+      }
+    }
+  }
+function argumentElements(entries: Listing<String>): Dynamic = (xml.Element("CommandLineArguments")) {
+  for (a in entries) { (xml.Element("CommandLineArgument")) { attributes { ["argument"] = a; ["isEnabled"] = "YES" } } }
+}
+function environmentElements(entries: Mapping<String, String>): Dynamic = (xml.Element("EnvironmentVariables")) {
+  for (key in entries.toMap().keys.toList().sort()) {
+    (xml.Element("EnvironmentVariable")) { attributes { ["key"] = key; ["value"] = entries[key]; ["isEnabled"] = "YES" } }
+  }
+}
+function launch(label: String, a: M.RunAction, s: W.SchemeInput, snapshot: W.Snapshot, facts: W.HostFacts): Dynamic =
+  (xml.Element(label)) {
+    attributes {
+      ["buildConfiguration"] = a.configuration
+      ["selectedDebuggerIdentifier"] = if (label == "LaunchAction") "Xcode.DebuggerFoundation.Debugger.LLDB" else ""
+      ["selectedLauncherIdentifier"] = if (label == "LaunchAction") "Xcode.IDEFoundation.Launcher.LLDB" else "Xcode.IDEFoundation.Launcher.PosixSpawn"
+      ["useCustomWorkingDirectory"] = "NO"; ["debugDocumentVersioning"] = "YES"
+    }
+    when (!a.preActions.isEmpty) { executionElements("PreActions", a.preActions, s, snapshot, facts) }
+    when (!a.postActions.isEmpty) { executionElements("PostActions", a.postActions, s, snapshot, facts) }
+    (xml.Element("BuildableProductRunnable")) {
+      attributes { ["runnableDebuggingMode"] = "0" }
+      buildable(s, a.target, snapshot, facts)
+    }
+    argumentElements(a.arguments)
+    environmentElements(a.environment)
+  }
+function document(s: W.SchemeInput, snapshot: W.Snapshot, facts: W.HostFacts): Dynamic =
+  let (d = s.definition)
+  (xml.Element("Scheme")) {
+    attributes { ["version"] = "1.3" }
+    (xml.Element("BuildAction")) {
+      attributes { ["parallelizeBuildables"] = yes(d.build.parallelizeBuild); ["buildImplicitDependencies"] = yes(d.build.buildImplicitDependencies) }
+      when (!d.build.preActions.isEmpty) { executionElements("PreActions", d.build.preActions, s, snapshot, facts) }
+      when (!d.build.postActions.isEmpty) { executionElements("PostActions", d.build.postActions, s, snapshot, facts) }
+      (xml.Element("BuildActionEntries")) {
+        for (t in d.build.targets) {
+          (xml.Element("BuildActionEntry")) {
+            attributes {
+              ["buildForTesting"] = yes(t.forTesting); ["buildForRunning"] = yes(t.forRunning)
+              ["buildForProfiling"] = yes(t.forProfiling); ["buildForArchiving"] = yes(t.forArchiving); ["buildForAnalyzing"] = yes(t.forAnalyzing)
+            }
+            buildable(s, t.target, snapshot, facts)
+          }
+        }
+      }
+    }
+    when (d.test != null) {
+      let (a = d.test!!)
+        (xml.Element("TestAction")) {
+          attributes {
+            ["buildConfiguration"] = a.configuration; ["selectedDebuggerIdentifier"] = "Xcode.DebuggerFoundation.Debugger.LLDB"
+            ["selectedLauncherIdentifier"] = "Xcode.IDEFoundation.Launcher.LLDB"
+            ["shouldUseLaunchSchemeArgsEnv"] = yes(a.inheritLaunchArguments); ["codeCoverageEnabled"] = yes(a.codeCoverage)
+          }
+          when (!a.preActions.isEmpty) { executionElements("PreActions", a.preActions, s, snapshot, facts) }
+          when (!a.postActions.isEmpty) { executionElements("PostActions", a.postActions, s, snapshot, facts) }
+          (xml.Element("Testables")) {
+            for (t in a.targets) {
+              (xml.Element("TestableReference")) {
+                attributes { ["skipped"] = yes(t.skipped); ["parallelizable"] = yes(t.parallelizable) }
+                buildable(s, t.target, snapshot, facts)
+              }
+            }
+          }
+          argumentElements(a.arguments)
+          environmentElements(a.environment)
+        }
+    }
+    when (d.run != null) { launch("LaunchAction", d.run!!, s, snapshot, facts) }
+    when (d.profile != null) { launch("ProfileAction", d.profile!!, s, snapshot, facts) }
+    when (d.analyze != null) {
+      let (a = d.analyze!!)
+        (xml.Element("AnalyzeAction")) {
+          attributes { ["buildConfiguration"] = a.configuration }
+          when (!a.preActions.isEmpty) { executionElements("PreActions", a.preActions, s, snapshot, facts) }
+          when (!a.postActions.isEmpty) { executionElements("PostActions", a.postActions, s, snapshot, facts) }
+        }
+    }
+    when (d.archive != null) {
+      let (a = d.archive!!)
+        (xml.Element("ArchiveAction")) {
+          attributes { ["buildConfiguration"] = a.configuration; ["revealArchiveInOrganizer"] = yes(a.revealArchiveInOrganizer) }
+          when (!a.preActions.isEmpty) { executionElements("PreActions", a.preActions, s, snapshot, facts) }
+          when (!a.postActions.isEmpty) { executionElements("PostActions", a.postActions, s, snapshot, facts) }
+        }
+    }
+  }

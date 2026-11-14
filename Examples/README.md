@@ -1,8 +1,8 @@
 # Examples
 
-各例の入口は `Main.pkl` です。共通の `PklProject` はcheckout内の `Pkl/xcproj` をlocal dependencyとして指定しているため、GitHub Releaseの公開前でも使えます。CLIが `pkl project resolve` を実行し、依存を解決します。
+Each example uses `Main.pkl` as its entry point. The shared `PklProject` references `Pkl/xcproj` in this checkout as a local dependency, so the examples work before a package is published on GitHub Releases. The CLI runs `pkl project resolve` to resolve dependencies.
 
-リポジトリルートから実行してください。
+Run these commands from the repository root:
 
 ```sh
 swift run xcprojgen validate Examples/Tool
@@ -15,32 +15,34 @@ swift run xcprojgen validate Examples/iOS
 swift run xcprojgen generate Examples/iOS --output-dir /tmp/xcprojgen-ios
 ```
 
-`Tool` はmacOSのCLI、`Workspace` は3つのFramework Projectと各テストをまとめる例です。Workspaceを別ディレクトリへ生成しても、メンバーのProjectは各 `projectDir` に生成します。
+`Tool` is a macOS command-line tool. `Workspace` groups three framework projects and their tests. Even when the workspace is generated in another directory, its member projects are generated in their respective `projectDir` directories.
 
-## Swift 6とNotification Service Extension
+[Advanced](Advanced/README.md) is a macOS tool that combines a local Swift package, pre- and post-build scripts, and a shared scheme. Generate it with `swift run xcprojgen generate Examples/Advanced --output-dir /tmp/xcprojgen-advanced`.
 
-`Shared/Templates.pkl` の `Swift6Framework` は公開スキーマの `Target` を継承します。`Shared/Settings.pkl` からimportする `compiler` に `SWIFT_VERSION = "6.0"` があり、生成するFrameworkはSwift 6モードになります。
+## Swift 6 and a Notification Service Extension
 
-`ExtensionSafeFramework extends Swift6Framework` は `APPLICATION_EXTENSION_API_ONLY = YES` を追加します。`iOS/Main.pkl` はこれらのクラスから次の6ターゲットを作成します。
+`Swift6Framework` in `Shared/Templates.pkl` extends `Target` from the public schema. The `compiler` settings imported from `Shared/Settings.pkl` set `SWIFT_VERSION = "6.0"`, so the generated frameworks use Swift 6 language mode.
 
-| ターゲット | テンプレート | 依存先 |
+`ExtensionSafeFramework extends Swift6Framework` adds `APPLICATION_EXTENSION_API_ONLY = YES`. `iOS/Main.pkl` uses these classes to create the following six targets:
+
+| Target | Template | Dependencies |
 |---|---|---|
-| DemoCore | ExtensionSafeFramework | なし |
+| DemoCore | ExtensionSafeFramework | None |
 | DemoNetworking | Swift6Framework | DemoCore |
 | DemoNotifications | ExtensionSafeFramework | DemoCore |
-| DemoApp | App | 3つのFramework、DemoNotificationService |
+| DemoApp | App | All three frameworks, DemoNotificationService |
 | DemoNotificationService | NotificationService | DemoNotifications |
 | DemoCoreTests | UnitTests | DemoCore |
 
-DemoAppは3つのFrameworkを `Frameworks/` に、通知Extensionを `PlugIns/` に埋め込みます。Extensionは `link = false; embed = true` としてアプリの依存に指定します。DemoAppの起動処理とExtensionの処理は、共有FrameworkのAPIを実際に呼び出します。
+DemoApp embeds the three frameworks in `Frameworks/` and the notification extension in `PlugIns/`. The extension is declared as an app dependency with `link = false; embed = true`. Both DemoApp's startup code and the extension call APIs from the shared frameworks.
 
-`NotificationService` は `type = "app-extension"` と `infoPlist` を指定したTargetテンプレートです。`infoPlist` のパスは各Projectの `projectDir` 基準で、生成先を変更するとPklが `INFOPLIST_FILE` をリベースします。
+`NotificationService` is a target template that sets `type = "app-extension"` and `infoPlist`. The `infoPlist` path is relative to the project's `projectDir`; Pkl rebases `INFOPLIST_FILE` when the output directory changes.
 
-この例は [UNNotificationServiceExtension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) を使い、受信した通知のタイトルを共有コードで加工して、同期的に完了ハンドラーを呼びます。APNsの署名・プロビジョニング・サーバー設定は含みません。実際のリモート通知で動作させる場合は、アプリ側のPush Notifications設定と、`aps.alert`・`aps.mutable-content = 1` を含むpayloadが必要です。[通知加工の公式ガイド](https://developer.apple.com/documentation/usernotifications/modifying-content-in-newly-delivered-notifications)
+This example uses [UNNotificationServiceExtension](https://developer.apple.com/documentation/usernotifications/unnotificationserviceextension) to modify an incoming notification's title through shared code, then calls the completion handler synchronously. It does not include APNs signing, provisioning, or server configuration. To use it with real remote notifications, enable Push Notifications for the app and send a payload containing `aps.alert` and `aps.mutable-content = 1`. See Apple's [guide to modifying notification content](https://developer.apple.com/documentation/usernotifications/modifying-content-in-newly-delivered-notifications).
 
 ```sh
-# iOS Simulator向けの署名なしビルドと埋め込みを確認します。
+# Verify an unsigned iOS Simulator build and embedded products.
 PKL_EXEC="$(command -v pkl)" bash Scripts/ios-smoke-test.sh
 ```
 
-このスクリプトはアプリ・Extension・Framework・テストbundleをビルドします。通知の配信やテストbundleの実行は行いません。
+This script builds the app, extension, frameworks, and test bundle. It does not deliver notifications or run the test bundle.

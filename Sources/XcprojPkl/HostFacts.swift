@@ -20,8 +20,8 @@ struct InputManifest: Decodable {
             let root = artifacts.first(where: { $0.id == rootArtifactId }), root.kind == kind
         else { throw ProjectError("Invalid or duplicate path/artifact identifiers in Snapshot") }
         let workspaceCount = artifacts.filter { $0.kind == .workspace }.count
-        guard workspaceCount == (kind == .workspace ? 1 : 0),
-            kind != .project || artifacts.count == 1,
+        guard kind != .scheme, workspaceCount == (kind == .workspace ? 1 : 0),
+            kind != .project || artifacts.filter({ $0.kind == .project }).count == 1,
             artifacts.contains(where: { $0.kind == .project })
         else { throw ProjectError("Invalid root artifact or Snapshot artifact set") }
         let pathIDs = Set(paths.map(\.id))
@@ -34,7 +34,7 @@ struct InputManifest: Decodable {
     }
 }
 
-enum ArtifactKind: String, Decodable, Sendable { case project, workspace }
+enum ArtifactKind: String, Decodable, Sendable { case project, workspace, scheme }
 struct ArtifactRequest: Decodable {
     let id: String
     let kind: ArtifactKind

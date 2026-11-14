@@ -1,0 +1,199 @@
+/// Projection of typed authoring values to apple/xcode-project-format JSON keys.
+module xcproj.SchemaRender
+import "SchemaTypes.pkl" as S
+
+function namePath(value: S.NamePath): Any =
+  if (value is String) value else value.toList().map((part) ->
+    if (part is String) part else new Dynamic { name = part.name })
+function anchoredReference(value: S.AnchoredReference): Any =
+  if (value is S.AnchoredFileReference) new Dynamic {
+    anchor = namePath(value.anchor)
+    `relative-path` = namePath(value.relativePath)
+  } else namePath(value)
+
+function buildPhase(value: S.BuildPhase): Dynamic = new {
+  kind = value.kind
+  when (value.id != null) { id = value.id }
+  when (value.name != null) { name = value.name }
+  when (value is S.ScriptBuildPhase) {
+    shell = value.shell
+    script = value.script
+    `log-environment-variables` = value.logEnvironmentVariables
+    `input-paths` = value.inputPaths
+    `input-file-list-paths` = value.inputFileListPaths
+    `output-paths` = value.outputPaths
+    `output-file-list-paths` = value.outputFileListPaths
+    when (value.dependencyFile != null) { `dependency-file` = value.dependencyFile }
+    `run-on-every-build` = value.runOnEveryBuild
+    scope = value.scope
+  }
+  when (value is S.CopyFilesBuildPhase) {
+    when (value.bundleBasePath != null) { `bundle-base-path` = value.bundleBasePath }
+    `relative-path` = value.relativePath
+    scope = value.scope
+  }
+  when (value is S.AppleScriptBuildPhase) {
+    `is-shared-context` = value.isSharedContext
+    `context-name` = value.contextName
+  }
+}
+function buildRule(value: S.BuildRule): Dynamic = new {
+  when (value.id != null) { id = value.id }
+  when (value.name != null) { name = value.name }
+  processor = value.processor
+  when (value.fileType != null) { `file-type` = value.fileType }
+  when (value.filePatterns != null) { `file-patterns` = value.filePatterns }
+  when (value.script != null) { script = value.script }
+  `input-files` = value.inputFiles
+  `input-file-lists` = value.inputFileLists
+  `output-files` = value.outputFiles
+  `output-file-lists` = value.outputFileLists
+  `output-files-compiler-flags` = value.outputFilesCompilerFlags
+  when (value.dependencyFile != null) { `dependency-file` = value.dependencyFile }
+  `run-once-per-architecture` = value.runOncePerArchitecture
+}
+function buildFileAttributes(value: S.BuildFileAttributes): Dynamic = new {
+  when (value.headerRole != null) { `header-role` = value.headerRole }
+  when (value.machInterfaceGeneration != null) { `mach-interface-generation` = value.machInterfaceGeneration }
+  `is-weak` = value.isWeak
+  `code-sign-on-copy` = value.codeSignOnCopy
+  `code-generation` = value.codeGeneration
+  `header-preservation` = value.headerPreservation
+  decompress = value.decompress
+  when (value.codeGenerationVisibility != null) { `code-generation-visibility` = value.codeGenerationVisibility }
+}
+function buildFileProperties(value: S.BuildFileProperties): Dynamic = (buildFileAttributes(value)) {
+  platforms = value.platforms
+  when (value.arguments != null) { arguments = value.arguments }
+  `asset-tags` = value.assetTags
+}
+function projectBuildFile(value: S.GroupTreeReference | S.ProjectBuildFile): Any =
+  if (value is S.ProjectBuildFile) (buildFileProperties(value)) {
+    when (value.id != null) { id = value.id }
+    `build-phase` = namePath(value.buildPhase)
+  } else namePath(value)
+function targetBuildFile(value: S.TargetBuildFile): Dynamic = (buildFileProperties(value)) {
+  when (value.id != null) { id = value.id }
+  `build-phase` = namePath(value.buildPhase)
+}
+function folderExceptionSet(value: S.FolderExceptionSet): Dynamic = new {
+  when (value.sense == "inclusions") { inclusions = value.members }
+  when (value.sense == "exclusions") { exclusions = value.members }
+  platforms = value.platforms
+  attributes = new Mapping {
+    for (key, entry in value.attributes) { [key] = buildFileAttributes(entry) }
+  }
+  `asset-tags` = value.assetTags
+  when (value is S.TargetExceptionSet) {
+    target = value.target
+    `public-headers` = value.publicHeaders
+    `private-headers` = value.privateHeaders
+    `compiler-flags` = value.compilerFlags
+  }
+  when (value is S.BuildPhaseExceptionSet) { `build-phase` = namePath(value.buildPhase) }
+}
+function reference(value: S.Reference): Dynamic = new {
+  path = value.path
+  when (value.id != null) { id = value.id }
+  when (value.index != null) { index = value.index }
+  when (value is S.FileReference) {
+    kind = "file-reference"
+    when (value.type != null) { type = value.type }
+    when (value.signature != null) { signature = value.signature }
+    when (value.encoding != null) { encoding = value.encoding }
+    when (value.lineEnding != null) { `line-ending` = value.lineEnding }
+    `target-membership` = value.targetMembership.toList().map((member) -> projectBuildFile(member))
+  }
+  when (value is S.Folder) {
+    kind = "folder"
+    `target-membership` = value.targetMembership
+    `membership-exceptions` = value.membershipExceptions.toList().map((entry) -> folderExceptionSet(entry))
+    `file-types` = value.fileTypes
+    `opaque-folders` = value.opaqueFolders
+  }
+  when (value is S.Group) {
+    kind = "group"
+    when (value.name != null) { name = value.name }
+    children = value.children.toList().map((child) -> reference(child))
+  }
+  when (value is S.VariantGroup) {
+    kind = "variant-group"
+    when (value.name != null) { name = value.name }
+    children = value.children.toList().map((child) -> reference(child))
+    `target-membership` = value.targetMembership.toList().map((member) -> projectBuildFile(member))
+  }
+  when (value is S.VersionGroup) {
+    kind = "version-group"
+    when (value.name != null) { name = value.name }
+    when (value.type != null) { type = value.type }
+    when (value.currentVersion != null) { `current-version` = namePath(value.currentVersion!!) }
+    children = value.children.toList().map((child) -> reference(child))
+    `target-membership` = value.targetMembership.toList().map((member) -> projectBuildFile(member))
+  }
+}
+function packageVersion(value: S.PackageVersion): Dynamic =
+  if (value.kind == "version-range" && value.maximum == null)
+    throw("PackageVersion.maximum is required for version-range")
+  else if (value.kind != "version-range" && value.maximum != null)
+    throw("PackageVersion.maximum is only valid for version-range")
+  else new {
+    when (value.kind == "revision") { revision = value.value }
+    when (value.kind == "branch") { branch = value.value }
+    when (value.kind == "version") { version = value.value }
+    when (value.kind == "version-range") {
+      `version-range-min` = value.value
+      `version-range-max` = value.maximum
+    }
+    when (value.kind == "up-to-next-minor-version") { `up-to-next-minor-version` = value.value }
+    when (value.kind == "up-to-next-major-version") { `up-to-next-major-version` = value.value }
+  }
+function swiftPackage(value: S.SwiftPackage): Dynamic = new {
+  traits = value.traits
+  when (value is S.LocalSwiftPackage) { kind = "local"; path = value.path }
+  when (value is S.RemoteSwiftPackage) {
+    kind = "remote"
+    repository = value.repository
+    when (value.version != null) { version = packageVersion(value.version!!) }
+  }
+}
+function targetDependency(value: S.TargetDependency): Dynamic = new {
+  platforms = value.platforms
+  when (value is S.LocalTargetDependency) { kind = "localTarget"; target = value.target }
+  when (value is S.RemoteTargetDependency) {
+    kind = "remoteTarget"
+    project = namePath(value.project)
+    target = value.target
+    `target-id` = value.targetId
+  }
+  when (value is S.PackageDependency) {
+    kind = "package"
+    when (value.id != null) { id = value.id }
+    when (value.package != null) { package = value.package }
+    `product-name` = value.productName
+    `product-type` = value.productType
+  }
+}
+function packageProductMember(value: S.PackageProductMember): Dynamic = new {
+  when (value.id != null) { id = value.id }
+  when (value.package != null) { package = value.package }
+  `product-name` = value.productName
+  `product-type` = value.productType
+  `build-phase` = targetBuildFile(value.buildPhase)
+}
+function importedProduct(value: S.ImportedProduct): Dynamic = new {
+  project = namePath(value.project)
+  target = value.target
+  `product-id` = value.productId
+  path = value.path
+  when (value.type != null) { type = value.type }
+  `target-membership` = value.targetMembership.toList().map((member) -> projectBuildFile(member))
+}
+function configuration(value: S.Configuration): Dynamic = new {
+  name = value.name
+  when (value.id != null) { id = value.id }
+  when (value.file != null) { file = anchoredReference(value.file!!) }
+}
+function localizations(value: S.Localizations): Dynamic = new {
+  development = value.development
+  supported = value.supported
+}

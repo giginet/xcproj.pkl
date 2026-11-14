@@ -10,10 +10,11 @@ class Owner {
 }
 function owners(p: W.ProjectInput): List<Owner> =
   p.targets.flatMap((t) -> t.sources.map((s) -> new Owner { target = t; source = s }))
-function productName(t: W.TargetInput): String = t.name +
-  (if (t.type == "application") ".app" else if (t.type == "app-extension") ".appex" else if (t.type == "framework") ".framework" else if (t.type == "bundle.unit-test") ".xctest" else if (t.type == "bundle") ".bundle" else "")
-function productType(t: W.TargetInput): String =
-  if (t.type == "application") "wrapper.application" else if (t.type == "app-extension") "wrapper.app-extension" else if (t.type == "framework") "wrapper.framework" else if (t.type == "bundle" || t.type == "bundle.unit-test") "wrapper.cfbundle" else "compiled.mach-o.executable"
+function productName(t: W.TargetInput): String = t.productName
+function productType(t: W.TargetInput): String = t.productFileType
+function embedPhase(type: String?): String = if (List("app-extension", "watchkit-extension", "watchkit2-extension", "app-extension.messages", "app-extension.messages-sticker-pack").contains(type)) "Embed App Extensions" else "Embed Frameworks"
+function dependencyType(p: W.ProjectInput, d: W.DependencyInput): String? =
+  if (d.target != null) p.targets.find((t) -> t.key == d.target).type else "framework"
 function phase(path: String): String =
   let (ext = path.split(".").last.toLowerCase())
   if (List("swift", "m", "mm", "c", "cc", "cpp", "cxx").contains(ext)) "compile-sources" else if (List("h", "hpp").contains(ext)) "headers" else "resources"
@@ -51,11 +52,14 @@ function sourceFile(p: W.ProjectInput, facts: W.HostFacts, group: List<Owner>): 
     }
   } else throw("Invalid sources")
 
-function configurations(p: W.ProjectInput, facts: W.HostFacts, paths: Map<String, String>, specialized: Boolean): List<Any> =
+function configurations(p: W.ProjectInput, facts: W.HostFacts, paths: Map<String, String>, details: Map<String, Dynamic>, specialized: Boolean): List<Any> =
   (new Listing {
     for (config in p.configurations.keys.toList().sort()) {
-      when (paths.containsKey(config)) {
-        new Dynamic { name = config; file = "id:" + configId(p, facts, paths[config]) }
+      when (paths.containsKey(config) || details.containsKey(config)) {
+        (details.getOrNull(config) ?? new Dynamic {}) {
+          name = config
+          when (paths.containsKey(config)) { file = "id:" + configId(p, facts, paths[config]) }
+        }
       } else {
         when (!specialized) { config }
       }
@@ -71,10 +75,13 @@ function product(p: W.ProjectInput, t: W.TargetInput): Dynamic = new {
     for (consumer in p.targets) {
       for (d in consumer.dependencies.distinct) {
         when (d.target == t.key) {
-          when (d.link) { "\(consumer.name)/frameworks" }
+          when (d.link) {
+            new Dynamic { `build-phase` = "\(consumer.name)/frameworks"; platforms = d.platforms }
+          }
           when (d.embed) {
             new Dynamic {
-              `build-phase` = "\(consumer.name)/copy/" + (if (t.type == "app-extension") "Embed App Extensions" else "Embed Frameworks")
+              `build-phase` = "\(consumer.name)/copy/" + embedPhase(t.type)
+              platforms = d.platforms
               `code-sign-on-copy` = true
               when (t.type == "framework") { `header-preservation` = "remove-on-copy" }
             }
@@ -84,33 +91,64 @@ function product(p: W.ProjectInput, t: W.TargetInput): Dynamic = new {
     }
   }
 }
-function target(p: W.ProjectInput, facts: W.HostFacts, t: W.TargetInput): Dynamic = new {
+function packageReference(p: W.ProjectInput, facts: W.HostFacts, d: W.DependencyInput): Dynamic =
+  let (entry = p.packages.find((entry) -> entry.key == d.package))
+  new {
+  package = if (entry.pathId != null) facts.paths[entry.pathId!!].components.last else entry.identity
+  `product-name` = d.product
+  `product-type` = d.productType
+}
+function dependency(p: W.ProjectInput, facts: W.HostFacts, d: W.DependencyInput): Dynamic =
+  if (d.target != null) new {
+    kind = "localTarget"; target = p.targets.find((t) -> t.key == d.target).name; platforms = d.platforms
+  } else (packageReference(p, facts, d)) { kind = "package"; platforms = d.platforms }
+
+function defaultPhases(p: W.ProjectInput, t: W.TargetInput): List<Any> =
+  (new Listing {
+    when (t.kind == "native") { "headers"; "compile-sources"; "frameworks"; "resources" }
+    for (phase in List("Embed Frameworks", "Embed App Extensions")) {
+      when (t.dependencies.any((d) -> d.embed && embedPhase(dependencyType(p, d)) == phase)) {
+        new Dynamic { kind = "copy"; name = phase; `bundle-base-path` = if (phase == "Embed Frameworks") "frameworks-directory" else "plugins-directory" }
+      }
+    }
+  }).toList()
+
+function target(p: W.ProjectInput, facts: W.HostFacts, t: W.TargetInput): Dynamic = (t.details) {
   name = t.name
   id = t.id
-  product = "Products/" + productName(t)
-  `product-type` = t.type
-  `build-phases` = new Listing {
-    "headers"; "compile-sources"; "frameworks"; "resources"
-    when (t.dependencies.any((d) -> d.embed && p.targets.any((other) -> other.key == d.target && other.type == "framework"))) {
-      new Dynamic { kind = "copy"; name = "Embed Frameworks"; `bundle-base-path` = "frameworks-directory" }
+  when (t.hasProduct) { product = "Products/" + productName(t) }
+  when (t.type != null) { `product-type` = t.type }
+  `build-phases` = t.preBuildScripts + (t.buildPhases ?? defaultPhases(p, t)) + t.postBuildScripts
+  `package-product-members` = t.details.`package-product-members`.toList() + (new Listing {
+    for (d in t.dependencies) {
+      when (d.package != null && d.link && d.productType != "build-tool-plugin") {
+        (packageReference(p, facts, d)) {
+          `build-phase` = new Dynamic { `build-phase` = "frameworks"; platforms = d.platforms }
+        }
+      }
+      when (d.package != null && d.embed) {
+        (packageReference(p, facts, d)) {
+          `build-phase` = new Dynamic { `build-phase` = "copy/Embed Frameworks"; platforms = d.platforms; `code-sign-on-copy` = true; `header-preservation` = "remove-on-copy" }
+        }
+      }
     }
-    when (t.dependencies.any((d) -> d.embed && p.targets.any((other) -> other.key == d.target && other.type == "app-extension"))) {
-      new Dynamic { kind = "copy"; name = "Embed App Extensions"; `bundle-base-path` = "plugins-directory" }
-    }
-  }
+  }).toList()
   `build-settings` = t.settings + (if (t.infoPlistPathId != null)
     Map("INFOPLIST_FILE", P.fromBundle(facts, t.infoPlistPathId!!, "\(p.artifactId):bundle")) else Map())
-  dependencies = t.dependencies.distinct.map((d) -> p.targets.filter((other) -> other.key == d.target).first.name)
-  `specialized-configurations` = configurations(p, facts, t.configFiles, true)
+  dependencies = t.details.dependencies.toList() + t.dependencies.distinct.map((d) -> dependency(p, facts, d))
+  `specialized-configurations` = configurations(p, facts, t.configFiles, t.configurationDetails, true)
 }
 function document(p: W.ProjectInput, facts: W.HostFacts): Dynamic =
   let (groups = owners(p).groupBy((o) -> P.absolute(facts, o.source.pathId)))
   let (configs = configGroups(p, facts))
-  new {
+  (p.details) {
+    ["products-group"] = p.productsGroup
     `default-configuration` = p.defaultConfiguration
-    configurations = module.configurations(p, facts, p.configFiles, false)
-    localizations = new Dynamic { development = "en"; supported = List("Base") }
+    configurations = module.configurations(p, facts, p.configFiles, p.configurationDetails, false)
+    packages = p.packages.map((entry) -> if (entry.pathId != null)
+      (entry.value) { path = P.fromBundle(facts, entry.pathId!!, "\(p.artifactId):bundle") } else entry.value)
     files = new Listing {
+      for (file in p.files) { file }
       for (path in groups.keys.toList().sort()) { sourceFile(p, facts, groups[path]) }
       when (!configs.isEmpty) {
         new Dynamic {
@@ -125,7 +163,9 @@ function document(p: W.ProjectInput, facts: W.HostFacts): Dynamic =
           }
         }
       }
-      new Dynamic { kind = "group"; name = "Products"; children = p.targets.map((t) -> product(p, t)) }
+      when (p.targets.any((t) -> t.hasProduct)) {
+        new Dynamic { kind = "group"; name = "Products"; children = p.targets.filter((t) -> t.hasProduct).map((t) -> product(p, t)) }
+      }
     }
     targets = p.targets.map((t) -> target(p, facts, t))
     `build-settings` = p.settings
