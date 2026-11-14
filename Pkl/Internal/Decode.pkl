@@ -1,0 +1,59 @@
+/// Explicit boundary between JSON values and the fixed internal protocol.
+module xcproj.Decode
+import "Protocol.pkl" as W
+
+function strings(raw: Dynamic): Map<String, String> = raw.toMap().mapValues((k, v) -> v as String)
+function settings(raw: Dynamic): W.Settings =
+  raw.toMap().mapValues((k, v) -> if (v is String) v else v.toList().map((s) -> s as String))
+function dependency(raw: Dynamic): W.DependencyInput = new { target = raw.target; link = raw.link; embed = raw.embed }
+function source(raw: Dynamic): W.SourceInput = new { pathId = raw.pathId; kind = raw.kind; excludes = raw.excludes.toList() }
+function target(raw: Dynamic): W.TargetInput = new {
+  key = raw.key; name = raw.name; type = raw.type; platform = raw.platform
+  id = raw.id; productId = raw.productId
+  settings = module.settings(raw.settings)
+  configFiles = strings(raw.configFiles)
+  sources = raw.sources.toList().map((s) -> source(s))
+  dependencies = raw.dependencies.toList().map((d) -> dependency(d))
+}
+function project(raw: Dynamic): W.ProjectInput = new {
+  key = raw.key; name = raw.name; idNamespace = raw.idNamespace
+  sourcePathId = raw.sourcePathId; rootPathId = raw.rootPathId; artifactId = raw.artifactId
+  configurations = strings(raw.configurations)
+  defaultConfiguration = raw.defaultConfiguration
+  settings = module.settings(raw.settings)
+  configFiles = strings(raw.configFiles)
+  targets = raw.targets.toList().map((t) -> target(t))
+}
+function workspace(raw: Dynamic): W.WorkspaceInput = new {
+  name = raw.name; sourcePathId = raw.sourcePathId; rootPathId = raw.rootPathId
+  artifactId = raw.artifactId; projectKeys = raw.projectKeys.toList()
+}
+function path(raw: Dynamic): W.PathRequest = new {
+  id = raw.id; path = raw.path; expectedKind = raw.expectedKind
+  mustExist = raw.mustExist; context = raw.context
+  base = new {
+    kind = raw.base.kind
+    uri = if (raw.base.kind == "uri") raw.base.uri else null
+    id = if (raw.base.kind == "request") raw.base.id else null
+    location = if (raw.base.kind == "request") raw.base.location else null
+  }
+}
+function artifact(raw: Dynamic): W.ArtifactRequest = new {
+  id = raw.id; kind = raw.kind; bundlePathId = raw.bundlePathId; filePathId = raw.filePathId
+}
+function snapshot(raw: Dynamic): W.Snapshot = new {
+  protocolVersion = raw.protocolVersion; schemaVersion = raw.schemaVersion; kind = raw.kind
+  entrySourceUri = raw.entrySourceUri; rootArtifactId = raw.rootArtifactId
+  projects = raw.projects.toList().map((p) -> project(p))
+  workspace = if (raw.kind == "workspace") module.workspace(raw.workspace) else null
+  paths = raw.paths.toList().map((p) -> path(p))
+  artifacts = raw.artifacts.toList().map((a) -> artifact(a))
+}
+function fact(raw: Dynamic): W.PathFact = new {
+  absolutePath = raw.absolutePath; canonicalUri = raw.canonicalUri
+  components = raw.components.toList(); exists = raw.exists; actualKind = raw.actualKind
+}
+function facts(raw: Dynamic): W.HostFacts = new {
+  protocolVersion = raw.protocolVersion
+  paths = raw.paths.toMap().mapValues((k, v) -> fact(v))
+}

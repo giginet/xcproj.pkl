@@ -1,0 +1,14 @@
+module xcproj.Paths
+import "Protocol.pkl" as W
+function absolute(facts: W.HostFacts, id: String): String = facts.paths[id].absolutePath
+function nested(a: String, b: String): Boolean = a != b && (a.startsWith(b + "/") || b.startsWith(a + "/"))
+function common(a: List<String>, b: List<String>, index: Int): Int =
+  if (index < a.length && index < b.length && a[index] == b[index]) common(a, b, index + 1) else index
+function relative(destination: List<String>, directory: List<String>): String =
+  let (count = common(destination, directory, 0))
+  let (parts = directory.drop(count).map((v) -> "..") + destination.drop(count))
+  if (parts.isEmpty) "." else parts.join("/")
+function between(facts: W.HostFacts, destinationId: String, directoryId: String): String =
+  relative(facts.paths[destinationId].components, facts.paths[directoryId].components)
+function fromBundle(facts: W.HostFacts, destinationId: String, bundleId: String): String =
+  relative(facts.paths[destinationId].components, facts.paths[bundleId].components.dropLast(1))

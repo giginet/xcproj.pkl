@@ -1,0 +1,88 @@
+module xcproj.Protocol
+
+typealias SettingValue = String | List<String>
+typealias Settings = Map<String, SettingValue>
+class Snapshot {
+  protocolVersion: Int(this == 1) = 1
+  schemaVersion: Int(this == 2) = 2
+  kind: "project" | "workspace"
+  entrySourceUri: String
+  rootArtifactId: String
+  projects: List<ProjectInput>
+  workspace: WorkspaceInput?
+  paths: List<PathRequest>
+  artifacts: List<ArtifactRequest>
+}
+class ProjectInput {
+  key: String
+  name: String
+  idNamespace: String
+  sourcePathId: String
+  rootPathId: String
+  artifactId: String
+  configurations: Map<String, String>
+  defaultConfiguration: String
+  settings: Settings
+  configFiles: Map<String, String>
+  targets: List<TargetInput>
+}
+class TargetInput {
+  key: String
+  name: String
+  type: String
+  platform: String
+  id: String
+  productId: String
+  settings: Settings
+  configFiles: Map<String, String>
+  sources: List<SourceInput>
+  dependencies: List<DependencyInput>
+}
+class SourceInput {
+  pathId: String
+  kind: String
+  excludes: List<String>
+}
+class DependencyInput {
+  target: String
+  link: Boolean
+  embed: Boolean
+}
+class WorkspaceInput {
+  name: String
+  sourcePathId: String
+  rootPathId: String
+  artifactId: String
+  projectKeys: List<String>
+}
+class PathBase {
+  kind: "uri" | "request"
+  uri: String?
+  id: String?
+  location: ("self" | "parent")?
+}
+class PathRequest {
+  id: String
+  base: PathBase
+  path: String
+  expectedKind: "file" | "directory" | "any"
+  mustExist: Boolean
+  context: String
+}
+class ArtifactRequest {
+  id: String
+  kind: "project" | "workspace"
+  bundlePathId: String
+  filePathId: String
+}
+class HostFacts {
+  protocolVersion: Int(this == 1) = 1
+  paths: Map<String, PathFact>
+}
+class PathFact {
+  absolutePath: String
+  canonicalUri: String
+  components: List<String>
+  exists: Boolean
+  actualKind: "file" | "directory" | "missing"
+}

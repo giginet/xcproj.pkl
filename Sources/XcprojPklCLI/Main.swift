@@ -20,17 +20,19 @@ struct EvaluationOptions: ParsableArguments {
     name: [.customShort("p"), .long], help: "Pkl external property, key=value. May be repeated.")
   var property: [String] = []
 
-  func evaluate(_ source: URL) throws -> Data {
+  func plan(_ source: URL, output: URL? = nil) throws -> GenerationPlan {
     for value in property where !value.contains("=") {
       throw ValidationError("Expected --property key=value, got '\(value)'")
     }
-    return try PklEvaluator(executable: pkl).evaluate(source, properties: property)
+    return try GenerationPlan.compile(
+      source: source, evaluator: PklEvaluator(executable: pkl), properties: property, output: output
+    )
   }
 }
 
 struct Generate: ParsableCommand {
   static let configuration = CommandConfiguration(
-    abstract: "Evaluate Pkl, resolve templates, and generate a project or workspace.")
+    abstract: "Evaluate Pkl and generate a project or workspace.")
   @Argument(help: "Entry Project.pkl or Workspace.pkl module.") var input: String
   @Option(
     name: .shortAndLong,
@@ -41,10 +43,7 @@ struct Generate: ParsableCommand {
 
   mutating func run() throws {
     let source = URL(fileURLWithPath: input).standardizedFileURL
-    let generated = try GenerationPlan.compile(
-      json: evaluation.evaluate(source), specDirectory: source.deletingLastPathComponent(),
-      output: output.map { URL(fileURLWithPath: $0) }
-    )
+    let generated = try evaluation.plan(source, output: output.map { URL(fileURLWithPath: $0) })
     let changed = try generated.write()
     print(
       "\(changed ? "Generated" : "Unchanged") \(generated.destination.path) (\(generated.projectCount) projects, \(generated.targetCount) targets)"
@@ -67,9 +66,7 @@ struct Validate: ParsableCommand {
     }
     switch source.pathExtension {
     case "pkl":
-      let plan = try GenerationPlan.compile(
-        json: evaluation.evaluate(source), specDirectory: source.deletingLastPathComponent()
-      )
+      let plan = try evaluation.plan(source)
       count = plan.targetCount
       projectCount = plan.projectCount
     case "xcworkspace":

@@ -1,27 +1,11 @@
 amends "../../Pkl/Project.pkl"
-import "../Shared/Settings.pkl" as SharedSettings
-import "../Shared/Templates.pkl" as SharedTemplates
-
+import "../Shared/Templates.pkl" as Shared
 name = "Tool"
 idNamespace = "com.example.tool"
-
-settingGroups {
-  ["warnings"] = SharedSettings.warnings
-  ["compiler"] = SharedSettings.compiler
-}
-targetTemplates {
-  ["Swift"] = SharedTemplates.swiftTarget
-  ["MacTool"] = SharedTemplates.macOSTool
-}
-settings {
-  base {
-    ["OTHER_SWIFT_FLAGS"] = new Listing { "-DPROJECT" }
-  }
-}
+settings { base { ["OTHER_SWIFT_FLAGS"] = new Listing { "-DPROJECT" } } }
 targets {
-  ["hello"] {
+  ["hello"] = new Shared.MacTool {
     name = "Hello"
-    templates { "MacTool" }
     settings { base { ["CODE_SIGNING_ALLOWED"] = "NO" } }
   }
 }

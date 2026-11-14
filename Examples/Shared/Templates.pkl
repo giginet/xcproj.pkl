@@ -1,23 +1,31 @@
 module examples.Templates
 import "../../Pkl/Project.pkl"
-
-swiftTarget: Project.Target = new {
-  settings { groups { "compiler" } }
-  sources { new { path = "Sources/${target_name}" } }
+import "Settings.pkl" as Common
+open class SwiftTarget extends Project.Target {
+  local target = this
+  settings = Common.compiler
+  sources { new { path = "Sources/\(target.name)" } }
 }
-
-macOSTool: Project.Target = new {
-  templates { "Swift" }
+open class MacTool extends SwiftTarget {
   type = "tool"
   platform = "macOS"
   deploymentTarget = "14.0"
 }
-
-iOS: Project.Target = new {
-  templates { "Swift" }
+open class IOS extends SwiftTarget {
+  local target = this
+  hidden bundleSuffix: String
   platform = "iOS"
   deploymentTarget = "17.0"
+  settings { base { ["PRODUCT_BUNDLE_IDENTIFIER"] = "com.example.\(target.bundleSuffix)" } }
+}
+open class Framework extends IOS { type = "framework" }
+open class App extends IOS {
+  type = "application"
   settings {
-    base { ["PRODUCT_BUNDLE_IDENTIFIER"] = "com.example.${bundleSuffix}" }
+    base {
+      ["INFOPLIST_KEY_UILaunchScreen_Generation"] = "YES"
+      ["INFOPLIST_KEY_UIApplicationSceneManifest_Generation"] = "YES"
+    }
   }
 }
+open class UnitTests extends IOS { type = "bundle.unit-test" }

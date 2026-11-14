@@ -6,7 +6,9 @@ public struct PklEvaluator: Sendable {
     self.executable = executable ?? ProcessInfo.processInfo.environment["PKL_EXEC"] ?? "pkl"
   }
 
-  public func evaluate(_ source: URL, properties: [String] = []) throws -> Data {
+  public func evaluate(_ source: URL, properties: [String] = [], expression: String? = nil) throws
+    -> Data
+  {
     try requirePath(source, directory: false, at: "Pkl input")
     let manager = FileManager.default
     let url: URL
@@ -44,7 +46,8 @@ public struct PklEvaluator: Sendable {
     process.currentDirectoryURL = source.deletingLastPathComponent()
     process.arguments =
       ["eval", "--format", "json", "--timeout", "60"]
-      + properties.flatMap { ["--property", $0] } + [source.path]
+      + properties.flatMap { ["--property", $0] }
+      + (expression.map { ["--expression", $0] } ?? []) + [source.path]
     process.standardOutput = output
     process.standardError = errors
     do { try process.run() } catch {

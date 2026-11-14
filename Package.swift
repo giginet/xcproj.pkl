@@ -14,9 +14,17 @@ let package = Package(
   ],
   targets: [
     .target(
+      name: "PklRuntimeResources",
+      path: "Pkl",
+      exclude: ["Project.pkl", "Workspace.pkl"],
+      sources: ["RuntimeResources.swift"],
+      resources: [.copy("Internal")]
+    ),
+    .target(
       name: "XcprojPkl",
       dependencies: [
-        .product(name: "XcodeProjectFormat", package: "xcode-project-format")
+        "PklRuntimeResources",
+        .product(name: "XcodeProjectFormat", package: "xcode-project-format"),
       ]),
     .executableTarget(
       name: "XcprojPklCLI",

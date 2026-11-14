@@ -1,0 +1,47 @@
+/// Base module kept independent of projection and rendering to avoid import cycles.
+open module xcproj.ProjectModel
+
+kind: "project" = "project"
+schemaVersion: Int(this == 2) = 2
+name: String(!isEmpty)
+idNamespace: String(!isEmpty) = name
+projectDir: String = "."
+configs: Mapping<String, "debug" | "release"> = new {
+  ["Debug"] = "debug"
+  ["Release"] = "release"
+}
+defaultConfiguration: String = "Debug"
+settings: Settings = new {}
+configFiles: Mapping<String, String>
+targets: Mapping<String, Target>
+
+typealias SettingValue = String | Listing<String>
+open class ConfigurationSettings {
+  base: Mapping<String, SettingValue>
+}
+open class Settings {
+  base: Mapping<String, SettingValue>
+  configs: Mapping<String, ConfigurationSettings>
+}
+open class Target {
+  name: String(!isEmpty)
+  type: "application" | "framework" | "bundle" | "bundle.unit-test" | "tool"
+  platform: "iOS" | "macOS"
+  deploymentTarget: String(matches(Regex(#"\d+(\.\d+){0,2}"#)))?
+  id: String(matches(Regex("[A-Fa-f0-9]{24}")))?
+  productId: String(matches(Regex("[A-Fa-f0-9]{24}")))?
+  settings: Settings = new {}
+  configFiles: Mapping<String, String>
+  sources: Listing<Source>
+  dependencies: Listing<Dependency>
+}
+class Source {
+  path: String(!isEmpty)
+  kind: "folder" | "file" = "folder"
+  excludes: Listing<String>
+}
+class Dependency {
+  target: String(!isEmpty)
+  link: Boolean = true
+  embed: Boolean = false
+}

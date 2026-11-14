@@ -4,300 +4,244 @@ import XcodeProjectFormat
 
 @testable import XcprojPkl
 
-private let workspaceRepositoryRoot = URL(fileURLWithPath: #filePath)
-  .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+@Suite(.enabled(if: hasPkl, "Set PKL_EXEC to run real Pkl workspace tests"))
+struct NativeWorkspaceTests {
+  @Test func standaloneAndWorkspaceMatchAndXMLRebasesAndEscapes() throws {
+    let f = try Fixture()
+    let body =
+      #"targets { ["app"] { name = "App"; type = "tool"; platform = "macOS"; sources { new { path = "Sources" } } } }"#
+    let source = try f.project(body, at: "A & B/Project.pkl")
+    try f.directory("A & B/Sources")
+    try f.project(body, at: "Other/Project.pkl")
+    try f.directory("Other/Sources")
+    let entry = try f.workspace(
+      #"["a"] = import("A & B/Project.pkl"); ["b"] = import("Other/Project.pkl")"#)
+    let standalone = try GenerationPlan.compile(source: source)
+    let plan = try GenerationPlan.compile(
+      source: entry, output: f.root.appendingPathComponent("Output/Modular.xcworkspace"))
+    #expect(plan.projectCount == 2 && plan.targetCount == 2)
+    #expect(plan.projects[0].data == standalone.projects[0].data)
+    #expect(plan.projects[0].destination == standalone.projects[0].destination)
+    let xml = try #require(plan.files.first { !$0.isProject })
+    #expect(String(decoding: xml.data, as: UTF8.self).contains("../A &amp; B/Example.xcodeproj"))
+    #expect(!FileManager.default.fileExists(atPath: plan.destination.path))
+    try plan.write()
+    #expect(try WorkspaceValidator.validate(plan.destination).projectCount == 2)
+    #expect(try !GenerationPlan.compile(source: entry, output: plan.destination).write())
+  }
 
-private func workspaceEntry(_ f: Fixture, directory: String, name: String) throws -> [String: Any] {
-  try f.file("\(directory)/Project.pkl")
-  try f.file("\(directory)/Sources/Source.swift")
-  try f.file("\(directory)/Tests/Tests.swift")
-  return [
-    "key": name,
-    "source": f.root.appendingPathComponent("\(directory)/Project.pkl").absoluteString,
-    "project": [
-      "schemaVersion": 1, "name": name, "idNamespace": "example.\(name)",
-      "targets": [
-        "framework": [
-          "name": name, "type": "framework", "platform": "macOS",
-          "sources": [["path": "Sources"]],
-        ],
-        "tests": [
-          "name": name + "Tests", "type": "bundle.unit-test", "platform": "macOS",
-          "sources": [["path": "Tests"]], "dependencies": [["target": "framework"]],
-        ],
-      ],
-    ],
-  ]
-}
+  @Test func projectAmendmentRetainsOriginalModuleRoot() throws {
+    let f = try Fixture()
+    try f.project(
+      #"targets { ["app"] { name = module.name; type = "tool"; platform = "macOS"; sources { new { path = "Sources" } } } }"#,
+      at: "A/Project.pkl")
+    try f.directory("A/Sources")
+    let entry = try f.workspace(#"["a"] = (import("A/Project.pkl")) { name = "Custom" }"#)
+    let plan = try GenerationPlan.compile(source: entry)
+    #expect(plan.projects[0].bundle.lastPathComponent == "Custom.xcodeproj")
+    let project = try XCSchema.Project(jsonRepresentation: plan.projects[0].data)
+    #expect(project.targets[0].name == "Custom")
+    guard case .folder(let folder) = project.topLevelReferences[0] else {
+      Issue.record("Expected folder")
+      return
+    }
+    #expect(folder.path.path == "Sources")
+  }
 
-private func workspaceSpec(_ entries: [[String: Any]]) -> [String: Any] {
-  ["kind": "workspace", "schemaVersion": 1, "name": "Modular", "projects": entries]
-}
+  @Test func projectModuleSymlinkUsesCanonicalParentInBothEntryModes() throws {
+    let f = try Fixture()
+    try f.project(
+      #"targets { ["a"] { name = "A"; type = "tool"; platform = "macOS"; sources { new { path = "Sources" } } } }"#,
+      at: "Actual/Project.pkl")
+    try f.directory("Actual/Sources")
+    try f.directory("Elsewhere")
+    try f.symlink("Elsewhere/Project.pkl", to: "../Actual/Project.pkl")
+    let standalone = try GenerationPlan.compile(
+      source: f.root.appendingPathComponent("Elsewhere/Project.pkl"))
+    let entry = try f.workspace(#"["a"] = import("Elsewhere/Project.pkl")"#)
+    let workspace = try GenerationPlan.compile(source: entry)
+    #expect(standalone.projects[0].data == workspace.projects[0].data)
+    #expect(
+      standalone.destination.path == f.root.appendingPathComponent("Actual/Example.xcodeproj").path)
+  }
 
-@Test func workspacePreservesModuleRootsAndStandaloneProjectOutput() throws {
-  let f = try Fixture()
-  let a = try workspaceEntry(f, directory: "Modules/A & B", name: "Alpha")
-  let b = try workspaceEntry(f, directory: "Modules/Beta", name: "Beta")
-  let output = f.root.appendingPathComponent("Generated/Modular.xcworkspace")
-  let generated = try WorkspaceGenerator().compile(
-    json: f.data(workspaceSpec([b, a])), specDirectory: f.root, output: output)
-  #expect(generated.projects.count == 2)
-  #expect(generated.targetCount == 4)
-  #expect(!FileManager.default.fileExists(atPath: output.path))
-  let standalone = try ProjectGenerator().compile(
-    json: f.data(a["project"] as! [String: Any]),
-    specDirectory: f.root.appendingPathComponent("Modules/A & B"))
-  #expect(generated.projects[0].data == standalone.data)
-  #expect(generated.projects[0].destination == standalone.destination)
-  let xml = String(decoding: generated.data, as: UTF8.self)
-  #expect(xml.contains("group:../Modules/A &amp; B/Alpha.xcodeproj"))
-  #expect(
-    try WorkspaceValidator.projectURLs(data: generated.data, workspace: output).map(\.path)
-      == generated.projects.map { $0.destination.path })
-  let project = try XCSchema.Project(jsonRepresentation: generated.projects[0].data)
-  guard case .folder(let source) = project.topLevelReferences.first else {
-    Issue.record("Expected source folder")
-    return
+  @Test func entryModuleSymlinkResolvesRelativeImportsFromItsCanonicalDirectory() throws {
+    let f = try Fixture()
+    try f.directory("Links")
+    try f.file(
+      "Actual/Base.pkl", "open module Base\nextends \(quoted(schema))\nname = \"Canonical\"\n")
+    let source = try f.file(
+      "Actual/Project.pkl",
+      #"""
+      amends "Base.pkl"
+      targets { ["app"] { name = "App"; type = "tool"; platform = "macOS" } }
+      """#)
+    try f.symlink("Links/Project.pkl", to: "../Actual/Project.pkl")
+    let direct = try GenerationPlan.compile(source: source)
+    let linked = try GenerationPlan.compile(
+      source: f.root.appendingPathComponent("Links/Project.pkl"))
+    #expect(direct.projects[0].data == linked.projects[0].data)
+    #expect(direct.destination == linked.destination)
   }
-  #expect(source.path.path == "Sources")
-}
 
-@Test func workspaceOrderingIsDeterministicAndPreservesBundleContents() throws {
-  let f = try Fixture()
-  let a = try workspaceEntry(f, directory: "Alpha", name: "Alpha")
-  let b = try workspaceEntry(f, directory: "Beta", name: "Beta")
-  let first = try WorkspaceGenerator().compile(
-    json: f.data(workspaceSpec([b, a])), specDirectory: f.root)
-  let second = try WorkspaceGenerator().compile(
-    json: f.data(workspaceSpec([a, b])), specDirectory: f.root)
-  #expect(first.data == second.data)
-  #expect(try first.write())
-  try f.file("Modular.xcworkspace/xcshareddata/keep.txt", "workspace scheme")
-  try f.file("Alpha/Alpha.xcodeproj/xcshareddata/keep.txt", "project scheme")
-  #expect(try !second.write())
-  #expect(
-    try String(
-      contentsOf: f.root.appendingPathComponent("Modular.xcworkspace/xcshareddata/keep.txt"),
-      encoding: .utf8) == "workspace scheme")
-  #expect(
-    try String(
-      contentsOf: f.root.appendingPathComponent("Alpha/Alpha.xcodeproj/xcshareddata/keep.txt"),
-      encoding: .utf8) == "project scheme")
-  let result = try WorkspaceValidator.validate(first.destination)
-  #expect(result.projectCount == 2)
-  #expect(result.targetCount == 4)
-}
+  @Test func workspaceSchemaVersionIsForcedDespiteLazyEvaluation() throws {
+    let f = try Fixture()
+    _ = try f.pair()
+    let source = try f.file(
+      "OldWorkspace.pkl",
+      """
+      amends \(quoted(workspaceSchema))
+      schemaVersion = 1
+      name = "Old"
+      projects { ["a"] = import("A/Project.pkl") }
+      """)
+    expectFailure(containing: "schemaVersion") { _ = try GenerationPlan.compile(source: source) }
+  }
 
-@Test func invalidWorkspaceMemberDoesNotModifyPreviouslyGeneratedProjects() throws {
-  let f = try Fixture()
-  let a = try workspaceEntry(f, directory: "Alpha", name: "Alpha")
-  let b = try workspaceEntry(f, directory: "Beta", name: "Beta")
-  let original = try WorkspaceGenerator().compile(
-    json: f.data(workspaceSpec([a])), specDirectory: f.root)
-  try original.write()
-  try FileManager.default.removeItem(at: f.root.appendingPathComponent("Beta/Sources"))
-  expectFailure(containing: "Workspace project 'Beta'") {
-    try WorkspaceGenerator().compile(json: f.data(workspaceSpec([a, b])), specDirectory: f.root)
-      .write()
-  }
-  #expect(
-    try Data(contentsOf: original.destination.appendingPathComponent("contents.xcworkspacedata"))
-      == original.data)
-  #expect(
-    try Data(contentsOf: original.projects[0].destination.appendingPathComponent("project.xcproj"))
-      == original.projects[0].data)
-  #expect(
-    !FileManager.default.fileExists(
-      atPath: f.root.appendingPathComponent("Beta/Beta.xcodeproj").path))
-}
-
-@Test(arguments: ["legacy", "directory"])
-func workspacePreflightsEveryOutputBeforeWriting(_ conflict: String) throws {
-  let f = try Fixture()
-  let a = try workspaceEntry(f, directory: "Alpha", name: "Alpha")
-  let b = try workspaceEntry(f, directory: "Beta", name: "Beta")
-  let generated = try WorkspaceGenerator().compile(
-    json: f.data(workspaceSpec([a, b])), specDirectory: f.root)
-  if conflict == "legacy" {
-    try f.file("Beta/Beta.xcodeproj/project.pbxproj", "existing legacy file")
-  } else {
-    try f.file("Beta/Beta.xcodeproj", "existing regular file")
-  }
-  #expect(throws: ProjectError.self) { try generated.write() }
-  #expect(!FileManager.default.fileExists(atPath: generated.projects[0].destination.path))
-  #expect(!FileManager.default.fileExists(atPath: generated.destination.path))
-}
-
-@Test func workspaceRejectsDuplicateModulesKeysAndOutputPaths() throws {
-  let f = try Fixture()
-  let a = try workspaceEntry(f, directory: "Alpha", name: "Alpha")
-  var duplicate = a
-  duplicate["key"] = "other"
-  expectFailure(containing: "Duplicate project module") {
-    _ = try WorkspaceGenerator().compile(
-      json: f.data(workspaceSpec([a, duplicate])), specDirectory: f.root)
-  }
-  expectFailure(containing: "duplicate workspace project key") {
-    _ = try WorkspaceGenerator().compile(
-      json: f.data(workspaceSpec([a, a])), specDirectory: f.root)
-  }
-  try f.file("Alpha/Other.pkl")
-  duplicate["source"] = f.root.appendingPathComponent("Alpha/Other.pkl").absoluteString
-  expectFailure(containing: "Duplicate workspace/project output paths") {
-    _ = try WorkspaceGenerator().compile(
-      json: f.data(workspaceSpec([a, duplicate])), specDirectory: f.root)
-  }
-  var nested = workspaceSpec([a])
-  nested["workspaceDir"] = "Alpha/Alpha.xcodeproj"
-  expectFailure(containing: "Nested workspace/project output paths") {
-    _ = try WorkspaceGenerator().compile(json: f.data(nested), specDirectory: f.root)
-  }
-}
-
-@Test func workspaceRejectsEmptyUnknownAndRemoteInputs() throws {
-  let f = try Fixture()
-  expectFailure(containing: "at least one project") {
-    _ = try GenerationPlan.compile(json: f.data(workspaceSpec([])), specDirectory: f.root)
-  }
-  var spec = workspaceSpec([])
-  spec["kind"] = "unknown"
-  expectFailure(containing: "Unknown Pkl document kind") {
-    _ = try GenerationPlan.compile(json: f.data(spec), specDirectory: f.root)
-  }
-  spec = workspaceSpec([])
-  spec["project"] = "typo"
-  expectFailure(containing: "unknown fields: project") {
-    _ = try GenerationPlan.compile(json: f.data(spec), specDirectory: f.root)
-  }
-  var entry = try workspaceEntry(f, directory: "Alpha", name: "Alpha")
-  entry["source"] = "https://example.com/Project.pkl"
-  expectFailure(containing: "local file URI") {
-    _ = try GenerationPlan.compile(json: f.data(workspaceSpec([entry])), specDirectory: f.root)
-  }
-}
-
-@Test func existingWorkspaceValidationChecksEveryReferencedProject() throws {
-  let f = try Fixture()
-  let a = try workspaceEntry(f, directory: "Alpha", name: "Alpha")
-  let b = try workspaceEntry(f, directory: "Beta", name: "Beta")
-  let generated = try WorkspaceGenerator().compile(
-    json: f.data(workspaceSpec([a, b])), specDirectory: f.root)
-  try generated.write()
-  try Data("{}".utf8).write(
-    to: generated.projects[1].destination.appendingPathComponent("project.xcproj"))
-  expectFailure(containing: "Beta.xcodeproj") {
-    _ = try WorkspaceValidator.validate(generated.destination)
-  }
-}
-
-@Test func workspaceXMLResolvesNestedGroupsAndContainerLocations() throws {
-  let f = try Fixture()
-  let xml = #"""
-    <Workspace version="1.0">
-      <Group location="group:Modules">
-        <Group location="group:Alpha"><FileRef location="group:Alpha.xcodeproj"/></Group>
-        <FileRef location="container:Beta/Beta.xcodeproj"/>
-      </Group>
-    </Workspace>
-    """#
-  let urls = try WorkspaceValidator.projectURLs(
-    data: Data(xml.utf8), workspace: f.root.appendingPathComponent("Modular.xcworkspace"))
-  #expect(
-    urls.map(\.path) == [
-      f.root.appendingPathComponent("Modules/Alpha/Alpha.xcodeproj").path,
-      f.root.appendingPathComponent("Beta/Beta.xcodeproj").path,
-    ])
-}
-
-@Test func workspaceXMLRejectsDanglingDuplicateAndUnsupportedReferences() throws {
-  let f = try Fixture()
-  let duplicate =
-    #"<Workspace version="1.0"><FileRef location="group:A.xcodeproj"/><FileRef location="container:A.xcodeproj"/></Workspace>"#
-  let bundle = f.root.appendingPathComponent("Modular.xcworkspace")
-  expectFailure(containing: "Duplicate workspace project reference") {
-    _ = try WorkspaceValidator.projectURLs(data: Data(duplicate.utf8), workspace: bundle)
-  }
-  let unsupported = #"<Workspace version="1.0"><FileRef location="group:README.md"/></Workspace>"#
-  expectFailure(containing: "Only .xcodeproj") {
-    _ = try WorkspaceValidator.projectURLs(data: Data(unsupported.utf8), workspace: bundle)
-  }
-  try f.file(
-    "Modular.xcworkspace/contents.xcworkspacedata",
-    #"<Workspace version="1.0"><FileRef location="group:Missing.xcodeproj"/></Workspace>"#)
-  expectFailure(containing: "Missing.xcodeproj") { _ = try WorkspaceValidator.validate(bundle) }
-  #expect(throws: ProjectError.self) {
-    try WorkspaceValidator.projectURLs(data: Data("<Workspace>".utf8), workspace: bundle)
-  }
-}
-
-@Test(
-  .enabled(
-    if: ProcessInfo.processInfo.environment["PKL_EXEC"] != nil, "Set PKL_EXEC for Pkl integration"))
-func workspaceGlobImportsOneHundredProjectModulesWithInheritedTargets() throws {
-  let f = try Fixture()
-  let workspaceSchema = workspaceRepositoryRoot.appendingPathComponent("Pkl/Workspace.pkl")
-    .absoluteString
-  let projectTemplate = workspaceRepositoryRoot.appendingPathComponent(
-    "Examples/Workspace/Shared/FrameworkProject.pkl"
-  ).absoluteString
-  for index in 0..<100 {
-    let name = String(format: "Feature%03d", index)
-    try f.file("Modules/\(name)/Project.pkl", "amends \"\(projectTemplate)\"\nname = \"\(name)\"\n")
-    try f.file("Modules/\(name)/Sources/Source.swift")
-    try f.file("Modules/\(name)/Tests/Tests.swift")
-  }
-  try f.file(
-    "Workspace.pkl",
-    """
-    amends "\(workspaceSchema)"
-    name = "Large"
-    projects = import*("Modules/*/Project.pkl")
-    """)
-  let data = try PklEvaluator().evaluate(f.root.appendingPathComponent("Workspace.pkl"))
-  let plan = try GenerationPlan.compile(json: data, specDirectory: f.root)
-  #expect(plan.projectCount == 100)
-  #expect(plan.targetCount == 200)
-  guard case .workspace(let workspace) = plan else {
-    Issue.record("Expected workspace")
-    return
-  }
-  var ids = Set<String>()
-  for generated in workspace.projects {
-    let project = try XCSchema.Project(jsonRepresentation: generated.data)
-    #expect(project.targets.count == 2)
-    for target in project.targets {
-      #expect(ids.insert(target.commonProperties.objectID.rawValue).inserted)
+  @Test func duplicateModuleAliasesAreRejected() throws {
+    let f = try Fixture()
+    _ = try f.pair()
+    try f.symlink("Alias.pkl", to: "A/Project.pkl")
+    let entry = try f.workspace(#"["a"] = import("A/Project.pkl"); ["b"] = import("Alias.pkl")"#)
+    expectFailure(containing: "Duplicate project module") {
+      _ = try GenerationPlan.compile(source: entry)
     }
   }
-  #expect(try plan.write())
-  let validated = try WorkspaceValidator.validate(plan.destination)
-  #expect(validated.projectCount == 100)
-  #expect(validated.targetCount == 200)
-  #expect(try !plan.write())
-}
 
-@Test(
-  .enabled(
-    if: ProcessInfo.processInfo.environment["PKL_EXEC"] != nil, "Set PKL_EXEC for Pkl integration"))
-func workspaceProjectAmendmentRetainsItsSourceModule() throws {
-  let f = try Fixture()
-  let schema = workspaceRepositoryRoot.appendingPathComponent("Pkl/Workspace.pkl").absoluteString
-  let project = workspaceRepositoryRoot.appendingPathComponent(
-    "Examples/Workspace/Modules/Catalog/Project.pkl")
-  try f.file(
-    "Workspace.pkl",
-    """
-    amends "\(schema)"
-    name = "Custom"
-    projects {
-      ["catalog"] = (import("\(project.absoluteString)")) { name = "CustomCatalog" }
+  @Test func duplicateAndNestedOutputsAreRejected() throws {
+    let f = try Fixture()
+    try f.directory("Shared")
+    let body =
+      #"projectDir = "../Shared"; targets { ["a"] { name = "A"; type = "tool"; platform = "macOS" } }"#
+    try f.project(body, at: "A/Project.pkl")
+    try f.project(body, at: "B/Project.pkl")
+    expectFailure(containing: "Duplicate workspace/project output paths") {
+      _ = try GenerationPlan.compile(source: f.workspace())
     }
-    """)
-  let data = try PklEvaluator().evaluate(f.root.appendingPathComponent("Workspace.pkl"))
-  let result = try WorkspaceGenerator().compile(json: data, specDirectory: f.root)
-  #expect(
-    result.projects[0].destination.deletingLastPathComponent().path
-      == project.deletingLastPathComponent().path)
-  #expect(result.projects[0].destination.lastPathComponent == "CustomCatalog.xcodeproj")
-  #expect(result.targetCount == 2)
+    let entry = try f.workspace(#"["a"] = import("A/Project.pkl")"#)
+    try f.directory("Shared/Example.xcodeproj")
+    expectFailure(containing: "Nested workspace/project output paths") {
+      _ = try GenerationPlan.compile(
+        source: entry,
+        output: f.root.appendingPathComponent("Shared/Example.xcodeproj/Nested.xcworkspace"))
+    }
+    try f.directory("Dest")
+    try f.symlink("DestAlias", to: "Dest")
+    let source = try f.project(
+      #"projectDir = "../Dest"; targets { ["a"] { name = "A"; type = "tool"; platform = "macOS" } }"#,
+      at: "A/Project.pkl")
+    _ = source
+    try f.project(
+      #"projectDir = "../DestAlias"; targets { ["b"] { name = "B"; type = "tool"; platform = "macOS" } }"#,
+      at: "B/Project.pkl")
+    expectFailure(containing: "Duplicate workspace/project output paths") {
+      _ = try GenerationPlan.compile(source: f.workspace())
+    }
+  }
+
+  @Test func invalidLastMemberAndPreflightLeaveAllOutputsUntouched() throws {
+    let f = try Fixture()
+    let entry = try f.pair()
+    let plan = try GenerationPlan.compile(source: entry)
+    try f.file("B/Example.xcodeproj/project.pbxproj", "legacy")
+    expectFailure(containing: "legacy project") { try plan.write() }
+    #expect(!FileManager.default.fileExists(atPath: plan.projects[0].destination.path))
+    try FileManager.default.removeItem(at: f.root.appendingPathComponent("B/Example.xcodeproj"))
+    try plan.write()
+    let original = try Data(contentsOf: plan.projects[0].destination)
+    try f.project(#"defaultConfiguration = "Missing""#, at: "B/Project.pkl")
+    expectFailure(containing: "defaultConfiguration") {
+      try GenerationPlan.compile(source: entry).write()
+    }
+    #expect(try Data(contentsOf: plan.projects[0].destination) == original)
+  }
+
+  @Test func removedMembersAreNotDeletedAndExistingValidationNeedsNoPkl() throws {
+    let f = try Fixture()
+    let entry = try f.pair()
+    let first = try GenerationPlan.compile(source: entry)
+    try first.write()
+    _ = try f.workspace(#"["a"] = import("A/Project.pkl")"#)
+    let second = try GenerationPlan.compile(source: entry)
+    try second.write()
+    #expect(FileManager.default.fileExists(atPath: first.projects[1].destination.path))
+    #expect(try WorkspaceValidator.validate(second.destination).projectCount == 1)
+    #expect(
+      try ProjectValidator.validate(data: Data(contentsOf: first.projects[1].destination)) == 1)
+  }
+
+  @Test func hundredProjectsUseTwoPklProcessesAndGenerateDeterministically() throws {
+    let f = try Fixture()
+    let template = repository.appendingPathComponent(
+      "Examples/Workspace/Shared/FrameworkProject.pkl"
+    ).path
+    for i in 0..<100 {
+      let name = String(format: "Unit%03d", i)
+      try f.file(
+        "Modules/\(name)/Project.pkl", "amends \(quoted(template))\nname = \(quoted(name))\n")
+      try f.directory("Modules/\(name)/Sources")
+      try f.directory("Modules/\(name)/Tests")
+    }
+    let entry = try f.file(
+      "Workspace.pkl",
+      "amends \(quoted(workspaceSchema))\nname = \"Large\"\nprojects = import*(\"Modules/*/Project.pkl\")\n"
+    )
+    let calls = f.root.appendingPathComponent("calls")
+    let binary = try #require(ProcessInfo.processInfo.environment["PKL_EXEC"])
+    let wrapper = try f.file(
+      "pkl-wrapper",
+      "#!/bin/sh\nprintf 'call\\n' >> \(shellQuoted(calls.path))\nexec \(shellQuoted(binary)) \"$@\"\n"
+    )
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wrapper.path)
+    let plan = try GenerationPlan.compile(
+      source: entry, evaluator: PklEvaluator(executable: wrapper.path))
+    #expect(plan.projectCount == 100 && plan.targetCount == 200)
+    #expect(try String(contentsOf: calls, encoding: .utf8).split(separator: "\n").count == 2)
+    try plan.write()
+    let next = try GenerationPlan.compile(source: entry)
+    #expect(plan.files.map(\.data) == next.files.map(\.data))
+    #expect(try !next.write())
+    #expect(try WorkspaceValidator.validate(plan.destination).targetCount == 200)
+  }
+
+  @Test func bundledRendererWorksAfterExecutableAndResourcesMove() throws {
+    let f = try Fixture()
+    let binary = repository.appendingPathComponent(".build/debug/xcproj-pkl")
+      .resolvingSymlinksInPath()
+    let bundle = binary.deletingLastPathComponent().appendingPathComponent(
+      "xcproj-pkl_PklRuntimeResources.bundle")
+    try f.directory("Installed")
+    try f.directory("OtherCwd")
+    let installed = f.root.appendingPathComponent("Installed")
+    try FileManager.default.copyItem(at: binary, to: installed.appendingPathComponent("xcproj-pkl"))
+    try FileManager.default.copyItem(
+      at: bundle, to: installed.appendingPathComponent(bundle.lastPathComponent))
+    let source = try f.project(
+      #"targets { ["a"] { name = "A"; type = "tool"; platform = "macOS" } }"#)
+    let calls = f.root.appendingPathComponent("arguments")
+    let real = try #require(ProcessInfo.processInfo.environment["PKL_EXEC"])
+    let wrapper = try f.file(
+      "pkl-wrapper",
+      "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \(shellQuoted(calls.path))\nexec \(shellQuoted(real)) \"$@\"\n"
+    )
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wrapper.path)
+    let process = Process()
+    process.executableURL = installed.appendingPathComponent("xcproj-pkl")
+    process.currentDirectoryURL = f.root.appendingPathComponent("OtherCwd")
+    process.arguments = ["validate", source.path, "--pkl", wrapper.path]
+    let log = try f.file("process.log")
+    let handle = try FileHandle(forWritingTo: log)
+    defer { try? handle.close() }
+    process.standardOutput = handle
+    process.standardError = handle
+    try process.run()
+    process.waitUntilExit()
+    let diagnostic = try String(contentsOf: log, encoding: .utf8)
+    #expect(process.terminationStatus == 0, "\(diagnostic)")
+    let arguments = try String(contentsOf: calls, encoding: .utf8)
+    #expect(arguments.contains(installed.path + "/" + bundle.lastPathComponent))
+    #expect(
+      !FileManager.default.fileExists(
+        atPath: f.root.appendingPathComponent("Example.xcodeproj").path))
+  }
 }

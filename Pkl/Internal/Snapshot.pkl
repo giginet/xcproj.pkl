@@ -1,0 +1,104 @@
+module xcproj.Snapshot
+import "pkl:reflect"
+import "ProjectModel.pkl" as Model
+import "Protocol.pkl" as W
+import "Builtins.pkl" as B
+
+function ref(identifier: String, relation: String): W.PathBase = new { kind = "request"; id = identifier; location = relation }
+function uri(value: String): W.PathBase = new { kind = "uri"; uri = value }
+function path(identifier: String, anchor: W.PathBase, value: String, expected: String, required: Boolean, label: String): W.PathRequest =
+  new { id = identifier; base = anchor; path = value; expectedKind = expected; mustExist = required; context = label }
+function artifact(identifier: String, type: String): W.ArtifactRequest =
+  new { id = identifier; kind = type; bundlePathId = "\(identifier):bundle"; filePathId = "\(identifier):file" }
+function projectId(key: String): String = "project:\(key.sha256.take(16))"
+function targetId(prefix: String, key: String): String = "\(prefix):target:\(key.sha256.take(16))"
+function configId(prefix: String, key: String): String = "\(prefix):config:\(key.sha256.take(16))"
+
+function configFiles(prefix: String, entries: Mapping<String, String>): Map<String, String> =
+  entries.toMap().mapValues((k, v) -> configId(prefix, k))
+
+function target(p: Model, prefix: String, k: String, t: Model.Target): W.TargetInput = new {
+  key = k
+  name = t.name
+  type = t.type
+  platform = t.platform
+  id = t.id ?? B.stableId(p.idNamespace, "target", k)
+  productId = t.productId ?? B.stableId(p.idNamespace, "product", k)
+  settings = B.settings(p.configs, t.settings, B.targetDefaults(p, t), true)
+  configFiles = module.configFiles(targetId(prefix, k), t.configFiles)
+  sources = t.sources.toList().mapIndexed((i, s) -> new W.SourceInput {
+    pathId = "\(targetId(prefix, k)):source:\(i)"
+    kind = s.kind
+    excludes = s.excludes.toList()
+  })
+  dependencies = t.dependencies.toList().map((d) -> new W.DependencyInput { target = d.target; link = d.link; embed = d.embed }).distinct
+}
+
+function project(p: Model, k: String): W.ProjectInput = new {
+  key = k
+  name = p.name
+  idNamespace = p.idNamespace
+  sourcePathId = "\(projectId(k)):module"
+  rootPathId = "\(projectId(k)):root"
+  artifactId = projectId(k)
+  configurations = p.configs.toMap()
+  defaultConfiguration = p.defaultConfiguration
+  settings = B.settings(p.configs, p.settings, Map("ALWAYS_SEARCH_USER_PATHS", "NO"), false)
+  configFiles = module.configFiles(projectId(k), p.configFiles)
+  targets = p.targets.toMap().keys.toList().sort().map((key) -> target(p, projectId(k), key, p.targets[key]))
+}
+
+function projectPaths(p: Model, k: String): List<W.PathRequest> =
+  let (prefix = projectId(k))
+  (new Listing<W.PathRequest> {
+    path("\(prefix):module", uri(reflect.moduleOf(p).uri), "", "file", true, "Project module \(k)")
+    path("\(prefix):root", ref("\(prefix):module", "parent"), p.projectDir, "directory", true, "\(k).projectDir")
+    path("\(prefix):bundle", ref("\(prefix):root", "self"), "\(p.name).xcodeproj", "any", false, "\(k) output")
+    path("\(prefix):file", ref("\(prefix):bundle", "self"), "project.xcproj", "any", false, "\(k) output file")
+    for (config, value in p.configFiles) {
+      path(configId(prefix, config), ref("\(prefix):root", "self"), value, "file", true, "\(k).configFiles.\(config)")
+    }
+    for (key in p.targets.toMap().keys.toList().sort()) {
+      for (config, value in p.targets[key].configFiles) {
+        path(configId(targetId(prefix, key), config), ref("\(prefix):root", "self"), value, "file", true, "\(k).targets.\(key).configFiles.\(config)")
+      }
+      for (i, source in p.targets[key].sources) {
+        path("\(targetId(prefix, key)):source:\(i)", ref("\(prefix):root", "self"), source.path, if (source.kind == "folder") "directory" else "file", true, "\(k).targets.\(key).sources")
+        for (j, exclude in source.excludes) {
+          path("\(targetId(prefix, key)):source:\(i):exclude:\(j)", ref("\(targetId(prefix, key)):source:\(i)", "self"), exclude, "any", true, "\(k).targets.\(key).excludes")
+        }
+      }
+    }
+  }).toList()
+
+function single(p: Model): W.Snapshot = new {
+  kind = "project"
+  entrySourceUri = reflect.moduleOf(p).uri
+  rootArtifactId = projectId("project")
+  projects = List(project(p, "project"))
+  paths = projectPaths(p, "project")
+  artifacts = List(artifact(projectId("project"), "project"))
+}
+
+function workspace(label: String, directory: String, source: String, entries: Mapping<String, Model>): W.Snapshot =
+  let (keys = entries.toMap().keys.toList().sort())
+  new {
+    kind = "workspace"
+    entrySourceUri = source
+    rootArtifactId = "workspace"
+    projects = keys.map((k) -> project(entries[k], k))
+    workspace = new {
+      name = label
+      sourcePathId = "workspace:module"
+      rootPathId = "workspace:root"
+      artifactId = "workspace"
+      projectKeys = keys
+    }
+    paths = keys.flatMap((k) -> projectPaths(entries[k], k)) + List(
+      path("workspace:module", uri(source), "", "file", true, "Workspace module"),
+      path("workspace:root", ref("workspace:module", "parent"), directory, "directory", true, "workspaceDir"),
+      path("workspace:bundle", ref("workspace:root", "self"), "\(label).xcworkspace", "any", false, "Workspace output"),
+      path("workspace:file", ref("workspace:bundle", "self"), "contents.xcworkspacedata", "any", false, "Workspace output file")
+    )
+    artifacts = keys.map((k) -> artifact(projectId(k), "project")) + List(artifact("workspace", "workspace"))
+  }

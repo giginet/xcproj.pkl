@@ -1,0 +1,47 @@
+/// Only frozen JSON and host facts are read here. User modules are never re-imported.
+module xcproj.Render
+import "pkl:json"
+import "pkl:xml"
+import "Decode.pkl" as Decode
+import "Validation.pkl" as Validation
+import "Xcode.pkl" as Xcode
+import "WorkspaceXml.pkl" as WorkspaceXml
+
+hidden snapshot = Decode.snapshot((new json.Parser {}).parse(read(read("prop:xcproj.internal.request"))))
+hidden facts = Decode.facts((new json.Parser {}).parse(read(read("prop:xcproj.internal.hostFacts"))))
+hidden valid = Validation.snapshot(snapshot, facts)
+
+output {
+  files = if (module.valid) new Mapping {
+    for (p in snapshot.projects) {
+      ["\(p.artifactId)/project.xcproj"] = new FileOutput {
+        renderer = new JsonRenderer {}
+        value = Xcode.document(p, facts)
+      }
+    }
+    when (snapshot.kind == "workspace") {
+      ["workspace/contents.xcworkspacedata"] = new FileOutput {
+        renderer = new xml.Renderer {}
+        value = WorkspaceXml.document(snapshot, facts)
+      }
+    }
+  } else throw("Invalid generation plan")
+}
+
+hidden renderPlanText = let (generatedOutputs = output.files!!)
+  (new JsonRenderer {}).renderDocument(new Dynamic {
+    protocolVersion = 1
+    rootArtifactId = snapshot.rootArtifactId
+    projectCount = snapshot.projects.length
+    targetCount = snapshot.projects.map((p) -> p.targets.length).fold(0, (total, count) -> total + count)
+    files = new Listing {
+      for (a in snapshot.artifacts) {
+        new Dynamic {
+          artifactId = a.id
+          kind = a.kind
+          destinationUri = facts.paths[a.filePathId].canonicalUri
+          text = generatedOutputs[if (a.kind == "project") "\(a.id)/project.xcproj" else "workspace/contents.xcworkspacedata"].text
+        }
+      }
+    }
+  })

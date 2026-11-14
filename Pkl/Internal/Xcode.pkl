@@ -1,0 +1,128 @@
+module xcproj.Xcode
+import "Protocol.pkl" as W
+import "Paths.pkl" as P
+import "Builtins.pkl" as B
+import "Validation.pkl" as V
+
+class Owner {
+  target: W.TargetInput
+  source: W.SourceInput
+}
+function owners(p: W.ProjectInput): List<Owner> =
+  p.targets.flatMap((t) -> t.sources.map((s) -> new Owner { target = t; source = s }))
+function productName(t: W.TargetInput): String = t.name +
+  (if (t.type == "application") ".app" else if (t.type == "framework") ".framework" else if (t.type == "bundle.unit-test") ".xctest" else if (t.type == "bundle") ".bundle" else "")
+function productType(t: W.TargetInput): String =
+  if (t.type == "application") "wrapper.application" else if (t.type == "framework") "wrapper.framework" else if (t.type == "bundle" || t.type == "bundle.unit-test") "wrapper.cfbundle" else "compiled.mach-o.executable"
+function phase(path: String): String =
+  let (ext = path.split(".").last.toLowerCase())
+  if (List("swift", "m", "mm", "c", "cc", "cpp", "cxx").contains(ext)) "compile-sources" else if (List("h", "hpp").contains(ext)) "headers" else "resources"
+function encoded(facts: W.HostFacts, pathId: String, bundleId: String): String =
+  "<PROJECT>/" + P.fromBundle(facts, pathId, bundleId)
+function configId(p: W.ProjectInput, facts: W.HostFacts, pathId: String): String =
+  B.stableId(p.idNamespace, "xcconfig", P.between(facts, pathId, p.rootPathId))
+function configPaths(p: W.ProjectInput): List<String> =
+  (p.configFiles.values.toList() + p.targets.flatMap((t) -> t.configFiles.values.toList())).distinct
+function configGroups(p: W.ProjectInput, facts: W.HostFacts): Map<String, List<String>> =
+  configPaths(p).groupBy((id) -> P.absolute(facts, id))
+
+function excluded(group: List<Owner>, key: String): List<String> =
+  group.filter((o) -> o.target.key == key).flatMap((o) -> o.source.excludes).toSet().toList().sort()
+
+function sourceFile(p: W.ProjectInput, facts: W.HostFacts, group: List<Owner>): Dynamic =
+  let (first = group.first)
+  let (consumers = p.targets.filter((t) -> group.any((o) -> o.target.key == t.key)))
+  if (V.check(group.every((o) -> o.source.kind == first.source.kind), "Conflicting source kinds for \(P.absolute(facts, first.source.pathId))"))
+  new Dynamic {
+    path = encoded(facts, first.source.pathId, "\(p.artifactId):bundle")
+    when (first.source.kind == "folder") {
+      kind = "folder"
+      `target-membership` = consumers.map((t) -> t.name)
+      `membership-exceptions` = new Listing {
+        for (t in consumers) {
+          when (!excluded(group, t.key).isEmpty) {
+            new Dynamic { target = t.name; exclusions = excluded(group, t.key) }
+          }
+        }
+      }
+    }
+    when (first.source.kind == "file") {
+      `target-membership` = consumers.map((t) -> "\(t.name)/\(phase(P.absolute(facts, first.source.pathId)))")
+    }
+  } else throw("Invalid sources")
+
+function configurations(p: W.ProjectInput, facts: W.HostFacts, paths: Map<String, String>, specialized: Boolean): List<Any> =
+  (new Listing {
+    for (config in p.configurations.keys.toList().sort()) {
+      when (paths.containsKey(config)) {
+        new Dynamic { name = config; file = "id:" + configId(p, facts, paths[config]) }
+      } else {
+        when (!specialized) { config }
+      }
+    }
+  }).toList()
+
+function product(p: W.ProjectInput, t: W.TargetInput): Dynamic = new {
+  path = "<PRODUCTS>/" + productName(t)
+  id = t.productId
+  type = productType(t)
+  index = false
+  `target-membership` = new Listing {
+    for (consumer in p.targets) {
+      for (d in consumer.dependencies.distinct) {
+        when (d.target == t.key) {
+          when (d.link) { "\(consumer.name)/frameworks" }
+          when (d.embed) {
+            new Dynamic {
+              `build-phase` = "\(consumer.name)/copy/Embed Frameworks"
+              `code-sign-on-copy` = true
+              `header-preservation` = "remove-on-copy"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+function target(p: W.ProjectInput, facts: W.HostFacts, t: W.TargetInput): Dynamic = new {
+  name = t.name
+  id = t.id
+  product = "Products/" + productName(t)
+  `product-type` = t.type
+  `build-phases` = new Listing {
+    "headers"; "compile-sources"; "frameworks"; "resources"
+    when (t.dependencies.any((d) -> d.embed)) {
+      new Dynamic { kind = "copy"; name = "Embed Frameworks"; `bundle-base-path` = "frameworks-directory" }
+    }
+  }
+  `build-settings` = t.settings
+  dependencies = t.dependencies.distinct.map((d) -> p.targets.filter((other) -> other.key == d.target).first.name)
+  `specialized-configurations` = configurations(p, facts, t.configFiles, true)
+}
+function document(p: W.ProjectInput, facts: W.HostFacts): Dynamic =
+  let (groups = owners(p).groupBy((o) -> P.absolute(facts, o.source.pathId)))
+  let (configs = configGroups(p, facts))
+  new {
+    `default-configuration` = p.defaultConfiguration
+    configurations = module.configurations(p, facts, p.configFiles, false)
+    localizations = new Dynamic { development = "en"; supported = List("Base") }
+    files = new Listing {
+      for (path in groups.keys.toList().sort()) { sourceFile(p, facts, groups[path]) }
+      when (!configs.isEmpty) {
+        new Dynamic {
+          kind = "group"; name = "Configurations"
+          children = new Listing {
+            for (canonical in configs.keys.toList().sort()) {
+              new Dynamic {
+                path = encoded(facts, configs[canonical].first, "\(p.artifactId):bundle")
+                id = configId(p, facts, configs[canonical].first)
+              }
+            }
+          }
+        }
+      }
+      new Dynamic { kind = "group"; name = "Products"; children = p.targets.map((t) -> product(p, t)) }
+    }
+    targets = p.targets.map((t) -> target(p, facts, t))
+    `build-settings` = p.settings
+  }

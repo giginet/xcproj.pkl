@@ -1,42 +1,20 @@
-/// Shared project template: one framework and its hostless test bundle.
 open module examples.FrameworkProject
 extends "../../../Pkl/Project.pkl"
+import "../../Shared/Settings.pkl" as Common
 
-import "../../Shared/Settings.pkl" as SharedSettings
-
+open class SwiftTarget extends Target {
+  platform = "macOS"
+  deploymentTarget = "14.0"
+  settings = (Common.compiler) { base { ["CODE_SIGNING_ALLOWED"] = "NO" } }
+}
+open class Framework extends SwiftTarget { type = "framework"; sources { new { path = "Sources" } } }
+open class UnitTests extends SwiftTarget {
+  type = "bundle.unit-test"
+  sources { new { path = "Tests" } }
+  dependencies { new { target = "framework" } }
+}
 idNamespace = "com.example.\(name)"
-settingGroups {
-  ["warnings"] = SharedSettings.warnings
-  ["compiler"] = SharedSettings.compiler
-}
-targetTemplates {
-  ["Swift"] {
-    platform = "macOS"
-    deploymentTarget = "14.0"
-    settings {
-      groups { "compiler" }
-      base { ["CODE_SIGNING_ALLOWED"] = "NO" }
-    }
-  }
-  ["Framework"] {
-    templates { "Swift" }
-    type = "framework"
-    sources { new { path = "Sources" } }
-  }
-  ["Tests"] {
-    templates { "Swift" }
-    type = "bundle.unit-test"
-    sources { new { path = "Tests" } }
-    dependencies { new { target = "framework" } }
-  }
-}
 targets {
-  ["framework"] {
-    name = module.name
-    templates { "Framework" }
-  }
-  ["tests"] {
-    name = "\(module.name)Tests"
-    templates { "Tests" }
-  }
+  ["framework"] = new Framework { name = module.name }
+  ["tests"] = new UnitTests { name = "\(module.name)Tests" }
 }

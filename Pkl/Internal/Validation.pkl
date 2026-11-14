@@ -1,0 +1,100 @@
+module xcproj.Validation
+import "pkl:reflect"
+import "ProjectModel.pkl" as Model
+import "Protocol.pkl" as W
+import "Paths.pkl" as Paths
+
+function check(condition: Boolean, message: String): Boolean = if (condition) true else throw(message)
+function name(value: String, context: String): Boolean =
+  check(value.matches(Regex("[A-Za-z0-9_][A-Za-z0-9_. -]*")), "\(context): invalid name '\(value)'")
+
+function authorSettings(s: Model.Settings, p: Model): Boolean =
+  (new Listing<Boolean> {
+    for (key, value in s.base) {
+      check(!key.isEmpty && !key.contains("[config="), "Invalid build setting '\(key)'; use settings.configs")
+    }
+    for (config, settings in s.configs) {
+      check(p.configs.containsKey(config), "Unknown build configuration in settings: \(config)")
+      for (key, value in settings.base) {
+        check(!key.isEmpty && !key.contains("[config="), "Invalid build setting '\(key)'")
+      }
+    }
+  }).toList().every((v) -> v)
+
+function authorProject(p: Model): Boolean =
+  (new Listing<Boolean> {
+    check(p.schemaVersion == 2 && p.kind == "project", "Unsupported project schemaVersion or kind")
+    name(p.name, "project.name")
+    check(reflect.moduleOf(p).uri.endsWith(".pkl"), "Project source must be a local file URI ending in .pkl")
+    check(!p.configs.isEmpty && p.configs.containsKey(p.defaultConfiguration), "defaultConfiguration must name an entry in configs")
+    for (key, kind in p.configs) { name(key, "configs") }
+    check(!p.targets.isEmpty, "targets must contain at least one target")
+    authorSettings(p.settings, p)
+    for (config, file in p.configFiles) { check(p.configs.containsKey(config), "configFiles: unknown configuration '\(config)'") }
+    for (key, t in p.targets) {
+      check(!key.isEmpty, "Empty target key")
+      name(t.name, "targets.\(key).name")
+      check(t.type != "tool" || t.platform == "macOS", "targets.\(key): tool requires macOS")
+      authorSettings(t.settings, p)
+      for (config, file in t.configFiles) { check(p.configs.containsKey(config), "targets.\(key).configFiles: unknown configuration '\(config)'") }
+      for (s in t.sources) {
+        check(s.kind == "folder" || s.excludes.isEmpty, "excludes requires a folder source")
+        for (excluded in s.excludes) {
+          check(!excluded.isEmpty && !excluded.startsWith("/") && !excluded.split("/").contains("..") && !excluded.contains("*") && !excluded.contains("?"), "Invalid folder exclusion '\(excluded)': use an exact relative path")
+        }
+      }
+    }
+  }).toList().every((v) -> v)
+
+function authorWorkspace(label: String, entries: Mapping<String, Model>): Boolean =
+  name(label, "workspace.name") && check(!entries.isEmpty, "Workspace must contain at least one project") &&
+  entries.toMap().every((k, p) -> check(!k.isEmpty, "Empty workspace project key") && authorProject(p))
+
+function visit(key: String, graph: Map<String, List<String>>, complete: Set<String>, stack: List<String>): Set<String> =
+  if (complete.contains(key)) complete
+  else if (stack.contains(key)) throw("Target dependency cycle: \((stack + List(key)).join(" → "))")
+  else graph[key].fold(complete, (done, next) -> visit(next, graph, done, stack + List(key))).add(key)
+function acyclic(graph: Map<String, List<String>>): Boolean =
+  graph.keys.toList().sort().fold(Set(), (done, key) -> visit(key, graph, done, List())).length >= 0
+
+function project(p: W.ProjectInput, facts: W.HostFacts): Boolean =
+  let (byKey = (new Mapping<String, W.TargetInput> { for (t in p.targets) { [t.key] = t } }).toMap())
+  (new Listing<Boolean> {
+    check(p.targets.map((t) -> t.name).toSet().length == p.targets.length, "\(p.key): Duplicate target name")
+    check((p.targets.flatMap((t) -> List(t.id.toUpperCase(), t.productId.toUpperCase()))).toSet().length == p.targets.length * 2, "\(p.key): Duplicate object ID")
+    for (t in p.targets) {
+      for (d in t.dependencies) {
+        check(byKey.containsKey(d.target), "targets.\(t.key): unknown dependency '\(d.target)'")
+        when (byKey.containsKey(d.target)) {
+          check(t.platform == byKey[d.target].platform, "targets.\(t.key): dependency '\(d.target)' has a different platform")
+          check(!d.link || byKey[d.target].type == "framework", "targets.\(t.key): only frameworks can be linked")
+          check(!d.embed || (byKey[d.target].type == "framework" && t.type == "application"), "targets.\(t.key): embedding is supported for application → framework dependencies only")
+        }
+        check(t.dependencies.filter((other) -> other.target == d.target).every((other) -> other == d), "targets.\(t.key): conflicting dependency options for '\(d.target)'")
+      }
+      for (i, s in t.sources) {
+        for (j, other in t.sources) {
+          when (j > i) {
+            check(Paths.absolute(facts, s.pathId) != Paths.absolute(facts, other.pathId) || s.kind == other.kind, "targets.\(t.key): Conflicting source kinds")
+            check(!Paths.nested(Paths.absolute(facts, s.pathId), Paths.absolute(facts, other.pathId)), "targets.\(t.key): overlapping source roots")
+          }
+        }
+      }
+    }
+    acyclic(byKey.mapValues((k, t) -> t.dependencies.map((d) -> d.target)))
+  }).toList().every((v) -> v)
+
+function snapshot(s: W.Snapshot, facts: W.HostFacts): Boolean =
+  let (bundles = s.artifacts.map((a) -> Paths.absolute(facts, a.bundlePathId)))
+  (new Listing<Boolean> {
+    check(s.protocolVersion == 1 && s.schemaVersion == 2 && facts.protocolVersion == 1, "Unsupported protocol or schemaVersion")
+    check(s.paths.map((p) -> p.id).toSet() == facts.paths.keys, "HostFacts do not match Snapshot path requests")
+    check(s.projects.map((p) -> Paths.absolute(facts, p.sourcePathId)).toSet().length == s.projects.length, "Duplicate project module")
+    check(bundles.toSet().length == bundles.length, "Duplicate workspace/project output paths")
+    for (i, a in bundles) {
+      for (j, b in bundles) {
+        when (j > i) { check(!Paths.nested(a, b), "Nested workspace/project output paths: \(a) and \(b)") }
+      }
+    }
+    for (p in s.projects) { project(p, facts) }
+  }).toList().every((v) -> v)
