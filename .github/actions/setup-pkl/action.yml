@@ -1,30 +1,46 @@
 name: Set up Pkl
-description: Install the pinned native Pkl CLI and enable Pkl integration tests.
+description: Install a specified native Pkl CLI release and enable Pkl integration tests.
+inputs:
+  version:
+    description: Pkl release version, such as 0.33.0.
+    required: true
 runs:
   using: composite
   steps:
-    - name: Install Pkl 0.33.0
+    - name: Install Pkl ${{ inputs.version }}
       shell: bash
+      env:
+        PKL_VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
+        if [[ ! "$PKL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+          printf 'Invalid Pkl release version: %s\n' "$PKL_VERSION" >&2
+          exit 1
+        fi
         case "$RUNNER_OS/$RUNNER_ARCH" in
           macOS/ARM64)
             asset=pkl-macos-aarch64
-            checksum=e39c157df0f00a35d34b46270a768784edcaf509aafbf743849b27b4c83ef83b
             ;;
           Linux/X64)
             asset=pkl-linux-amd64
-            checksum=b9a6ddea6b382b7d4db4cf78e77aa3858e0c8a7e02939d2ba298574b5d1fcc69
             ;;
           *)
             printf 'Unsupported Pkl runner: %s/%s\n' "$RUNNER_OS" "$RUNNER_ARCH" >&2
             exit 1
             ;;
         esac
-        install_dir="$RUNNER_TEMP/pkl-0.33.0"
+        digest="$(gh api "repos/apple/pkl/releases/tags/$PKL_VERSION" \
+          --jq ".assets[] | select(.name == \"$asset\") | .digest")"
+        if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+          printf 'Missing or invalid SHA-256 digest for Pkl %s (%s)\n' "$PKL_VERSION" "$asset" >&2
+          exit 1
+        fi
+        checksum="${digest#sha256:}"
+        install_dir="$RUNNER_TEMP/pkl-$PKL_VERSION"
         mkdir -p "$install_dir"
         curl --fail --location --retry 3 \
-          "https://github.com/apple/pkl/releases/download/0.33.0/$asset" \
+          "https://github.com/apple/pkl/releases/download/$PKL_VERSION/$asset" \
           --output "$install_dir/pkl"
         printf '%s  %s\n' "$checksum" "$install_dir/pkl" | shasum -a 256 --check
         chmod +x "$install_dir/pkl"

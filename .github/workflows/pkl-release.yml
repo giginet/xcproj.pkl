@@ -26,6 +26,8 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/setup-pkl
+        with:
+          version: '0.33.0'
       - name: Package the tagged version and verify artifacts
         run: bash Scripts/prepare-pkl-release.sh "$RELEASE_TAG" --output-path "$RUNNER_TEMP/pkl-release"
       - name: Attach the package, metadata, and checksums

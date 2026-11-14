@@ -24,6 +24,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-pkl
+        with:
+          version: '0.33.0'
       - name: Show toolchain
         run: |
           xcodebuild -version

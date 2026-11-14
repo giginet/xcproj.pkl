@@ -39,6 +39,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-pkl
+        with:
+          version: '0.33.0'
       - name: Generate, validate, and build the example
         env:
           SMOKE_SCRIPT: ${{ matrix.script }}

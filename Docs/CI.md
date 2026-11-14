@@ -11,7 +11,15 @@ Pull requests and pushes to `main` run four workflows. Each also supports manual
 
 The macOS workflows use the ARM64 `xcode-27` runner and explicitly select `/Applications/Xcode_27.2.app/Contents/Developer`. Xcode 27.2 is required for the JSON project format; the runner's default Xcode may be older. See the [official runner image inventory](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md). Pkl-only jobs run on Ubuntu 24.04.
 
-The local `setup-pkl` action installs the official native Pkl 0.33.0 executable, verifies its pinned SHA-256 checksum, and sets both `PATH` and `PKL_EXEC`. When upgrading Pkl, update both platform checksums in that action. The download locations follow the [official installation guide](https://pkl-lang.org/main/current/pkl-cli/index.html#installation).
+The local `setup-pkl` action requires a `version` input. Workflows currently select Pkl 0.33.0:
+
+```yaml
+- uses: ./.github/actions/setup-pkl
+  with:
+    version: '0.33.0'
+```
+
+The action downloads the official native executable for that version, verifies its SHA-256 digest from the GitHub release asset metadata, and sets both `PATH` and `PKL_EXEC`. A missing or invalid digest fails installation. It uses the built-in GitHub token to read release metadata; no additional secret is needed. To upgrade Pkl, change the callers' `version` inputs. The download locations follow the [official installation guide](https://pkl-lang.org/main/current/pkl-cli/index.html#installation).
 
 Smoke tests run unsigned macOS and iOS Simulator builds. They also compile the examples' test bundles; running those bundles and delivering push notifications are outside their scope. The tool examples execute their built binaries, Advanced verifies package linkage and script output, and MixedWorkspace builds both its generated and existing projects.
 
