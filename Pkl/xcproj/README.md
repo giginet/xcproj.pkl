@@ -1,6 +1,6 @@
 # xcproj Pkl package
 
-Typed authoring schemas for `xcproj-pkl` (schema version 2, Pkl 0.33+).
+Typed authoring schemas for `xcprojgen` (schema version 2, Pkl 0.33+).
 
 - `Project.pkl`: project module class; exports `Target`, `Settings`, `Source`, and `Dependency`.
 - `Workspace.pkl`: workspace module class, collecting local Project modules.
@@ -19,7 +19,7 @@ dependencies {
 }
 ```
 
-Resolve dependencies with `pkl project resolve`. Then define a local Project.pkl:
+Resolve dependencies with `pkl project resolve`. Then define a local Main.pkl:
 
 ```pkl
 amends "@xcproj/Project.pkl"
@@ -34,7 +34,7 @@ targets {
 }
 ```
 
-Use `import "@xcproj/Project.pkl" as X` to define reusable classes extending `X.Target` and reusable `X.Settings` objects. Workspace.pkl can amend `@xcproj/Workspace.pkl` and import local Project modules. Run the resulting local entry through the matching Swift CLI; evaluating the public schemas produces an intermediate Snapshot, not the final Xcode project.
+Use `import "@xcproj/Project.pkl" as X` to define reusable classes extending `X.Target` and reusable `X.Settings` objects. For a workspace, Main.pkl can amend `@xcproj/Workspace.pkl` and import local Project modules. The CLI defaults to `<dir>/Main.pkl`; `--entry` selects another module relative to `<dir>`. Run the resulting local entry through the matching Swift CLI; evaluating the public schemas produces an intermediate Snapshot, not the final Xcode project.
 
 For checkout-based development, a consumer may use a local dependency instead:
 

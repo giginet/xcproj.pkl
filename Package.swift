@@ -5,7 +5,7 @@ let package = Package(
   name: "xcproj-pkl",
   platforms: [.macOS(.v14)],
   products: [
-    .executable(name: "xcproj-pkl", targets: ["XcprojPklCLI"]),
+    .executable(name: "xcprojgen", targets: ["XcprojPklCLI"]),
     .library(name: "XcprojPkl", targets: ["XcprojPkl"]),
   ],
   dependencies: [

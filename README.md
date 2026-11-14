@@ -1,6 +1,6 @@
 # xcproj.pkl
 
-PklからXcodeのJSON形式 `project.xcproj` と `xcworkspace` を生成・検証するSwift CLIです。1つのProject.pklを1つのxcodeprojとして扱い、Workspace.pklから多数のProjectをまとめて生成できます。
+`xcprojgen`はPklからXcodeのJSON形式 `project.xcproj` と `xcworkspace` を生成・検証するSwift CLIです。Main.pklの型に応じて、単一のxcodeprojまたは複数Projectをまとめたxcworkspaceを生成できます。
 
 v2では、Targetの再利用にPklのクラス継承、Projectの再利用にmodule classと`amends`、共有設定にimportとオブジェクトのamendmentを使います。設定解決、既定値、安定ID、Xcode JSON・Workspace XMLの構築はPklが担当します。
 
@@ -16,25 +16,73 @@ Pklは外部プロセスとして起動します。既存のxcproj/workspaceを�
 
 ```sh
 swift build
+swift run xcprojgen --help
 
-# 完成したJSON/XMLまで検証。成果物は書き込みません。
-swift run xcproj-pkl validate Examples/Tool/Project.pkl
+# Pkl CLIの実行ファイルとバージョンを確認。
+swift run xcprojgen doctor
 
-# 既定の projectDir/name.xcodeproj へ生成。
-swift run xcproj-pkl generate Examples/Tool/Project.pkl
+# Main.pklを入口とするWorkspaceの雛形を生成（既定値）。
+swift run xcprojgen init MyWorkspace --type workspace
 
-# 出力先を移動。ソースとxcconfigの参照もリベースします。
-swift run xcproj-pkl generate Examples/Tool/Project.pkl -o /tmp/Tool.xcodeproj
+# 単一xcodeproj用の雛形。
+swift run xcprojgen init MyLibrary --type project
 
-# 既存ファイルを読み取り専用で検証。
-swift run xcproj-pkl validate /tmp/Tool.xcodeproj
-swift run xcproj-pkl validate /tmp/Tool.xcodeproj/project.xcproj
+# 依存パッケージを解決し、完成するJSON/XMLを検証。
+swift run xcprojgen validate MyWorkspace
+
+# MyWorkspace/Workspace.xcworkspace と配下のxcodeprojを生成。
+swift run xcprojgen generate MyWorkspace
+
+# Workspaceの出力先を指定。相対パスはCLI実行時の作業ディレクトリ基準。
+swift run xcprojgen validate MyWorkspace --output-path /tmp/MyWorkspace.xcworkspace
+swift run xcprojgen generate MyWorkspace --output-path /tmp/MyWorkspace.xcworkspace
+
+# 既存の生成物を読み取り専用で検証。Pklは不要。
+swift run xcprojgen validate /tmp/MyWorkspace.xcworkspace
 
 # Pklのexternal property。複数回指定できます。
-swift run xcproj-pkl generate MyProject.pkl --property flavor=debug
+swift run xcprojgen generate MyWorkspace --property flavor=debug
 ```
 
-`--pkl`と`--property`はPkl入力にのみ指定できます。`PKL_EXEC`は引数を含まない実行ファイルのパスです。`xcproj.internal.`というproperty名は内部処理用に予約しています。
+`init <dir>`は通信やPklの起動を行わず、既存ファイルを上書きしません。次の雛形を作成します。
+
+```text
+MyWorkspace/
+  PklProject
+  Main.pkl
+  Templates.pkl
+  Projects/Core/
+    Project.pkl
+    Sources/Core.swift
+    Tests/CoreTests.swift
+```
+
+`PklProject`はこのリポジトリの将来のGitHub Release (`v0.1.0`) にある `xcproj@0.1.0` をdependencyとして指定します。現時点ではReleaseは未配布なので、そのままのURIによる依存取得は配布開始後に可能になります。開発中は後述のlocal dependency、または `Scripts/package-pkl.sh --skip-publish-check --install` によるローカルキャッシュを利用できます。
+
+`Main.pkl`が共通のエントリーポイントです。`amends "@xcproj/Workspace.pkl"` ならWorkspace、`amends "@xcproj/Project.pkl"` ならProjectを生成します。`init --type`は作成する雛形の選択にだけ使い、生成時にはPklの型で対象を決めます。単一Projectの雛形では `Main.pkl`、`Sources/`、`Tests/` をルートに置きます。
+
+別の入口を使う場合は、ディレクトリ基準の `--entry` を明示します。既定の `Main.pkl` が存在しない場合はエラーになり、`Project.pkl` や `Workspace.pkl` の自動探索はしません。
+
+```sh
+swift run xcprojgen generate MyWorkspace --entry Projects/Core/Project.pkl --output-path /tmp/Core.xcodeproj
+swift run xcprojgen validate MyWorkspace --entry Projects/Core/Project.pkl
+```
+
+`validate` / `generate` は最寄りの `PklProject` に対して `pkl project resolve` を実行してから評価します。`validate`も依存lockfileの `PklProject.deps.json` を作成・更新することがありますが、生成するxcworkspace/xcodeprojは書き込みません。lockfileは利用側のリポジトリで管理してください。
+
+`--output-path`（短縮形 `-o`）は出力bundle自体のパスです。入口がWorkspace型なら `.xcworkspace`、Project型なら `.xcodeproj` を指定します。Workspace内の各Projectはそれぞれの `projectDir` に出力し、Workspaceからの参照を調整します。省略時はWorkspaceの `workspaceDir/name.xcworkspace`、Projectの `projectDir/name.xcodeproj` です。互換性のため `--output` も受け付けます。
+
+`Project.pkl` / `Workspace.pkl` の直接指定と、既存 `.xcworkspace` / `.xcodeproj` / `project.xcproj` の検証にも対応しています。
+
+```sh
+swift run xcprojgen validate Examples/Workspace --entry Workspace.pkl
+swift run xcprojgen generate Examples/Tool/Project.pkl --output-path /tmp/Tool.xcodeproj
+swift run xcprojgen validate /tmp/Tool.xcodeproj
+```
+
+`--pkl /path/to/pkl`は `doctor` / `validate` / `generate` で使えます。探索順は `--pkl`、`PKL_EXEC`、`PATH` です。`PKL_EXEC`は引数を含まない実行ファイルのパスです。`doctor`は実行ファイルとバージョンを表示し、未導入・実行失敗・対応外バージョンの場合は非ゼロで終了します。未導入・対応外の場合は [Pkl公式Installationガイド](https://pkl-lang.org/main/current/pkl-cli/index.html#installation) を案内します。自動インストールは行いません。
+
+`--pkl`・`--property`・`--entry`・`--output-path`は既存の生成物の検証には指定できません。`xcproj.internal.`というproperty名は内部処理用に予約しています。
 
 ## Pkl Projectと配布パッケージ
 
@@ -193,15 +241,15 @@ projects = import*("Modules/*/Project.pkl")
 ```
 
 ```sh
-swift run xcproj-pkl validate Examples/Workspace/Workspace.pkl
-swift run xcproj-pkl generate Examples/Workspace/Workspace.pkl
-swift run xcproj-pkl validate Examples/Workspace/Modular.xcworkspace
+swift run xcprojgen validate Examples/Workspace/Workspace.pkl
+swift run xcprojgen generate Examples/Workspace/Workspace.pkl
+swift run xcprojgen validate Examples/Workspace/Modular.xcworkspace
 
 # 各Projectは単独でも同じ内容で生成できます。
-swift run xcproj-pkl generate Examples/Workspace/Modules/Catalog/Project.pkl
+swift run xcprojgen generate Examples/Workspace/Modules/Catalog/Project.pkl
 ```
 
-Projectは自分の`projectDir/name.xcodeproj`、Workspaceは`workspaceDir/name.xcworkspace`へ生成します。Workspace入力に対する`-o`はWorkspaceだけを移動します。
+Projectは自分の`projectDir/name.xcodeproj`、Workspaceは`workspaceDir/name.xcworkspace`へ生成します。Workspace入力に対する`--output-path`はWorkspaceだけを移動します。
 
 Workspace内でimportしたProjectをamendしても、パスは元のProject.pklがあるディレクトリを基準にします。モジュール自体がsymlinkの場合もcanonicalなモジュールの親を使い、単独生成とWorkspace経由で統一します。Projectモジュールはローカルのfile URIに限定しています。共有テンプレート・設定にはPklのimportを使えます。
 
@@ -237,7 +285,7 @@ Sources/XcprojPkl/HostFacts.swift  OSパス情報の取得
 Sources/XcprojPkl/GenerationPlan.swift  実行、最終検証、出力制御
 ```
 
-ユーザーモジュールを一度評価して固定Snapshotを作り、Swiftがsymlink・存在・種別の情報を補った後、内部Render.pklを評価します。Pklプロセスの起動はWorkspace全体で2回です。2回目にユーザーモジュールを再importしません。SwiftはTargetやSettingsの作者モデルをdecodeせず、完成したJSON/XMLも書き換えません。
+ユーザーモジュールを一度評価して固定Snapshotを作り、Swiftがsymlink・存在・種別の情報を補った後、内部Render.pklを評価します。生成計画の評価はWorkspace全体でPklプロセス2回です。CLIはその前に依存解決のためのPklプロセスを1回起動します（PklProjectがある場合）。2回目にユーザーモジュールを再importしません。SwiftはTargetやSettingsの作者モデルをdecodeせず、完成したJSON/XMLも書き換えません。
 
 内部PklはSwiftPMのresource bundleに含めています。実行ファイルを移動する場合は`xcproj-pkl_PklRuntimeResources.bundle`も同じディレクトリへ配置してください。
 

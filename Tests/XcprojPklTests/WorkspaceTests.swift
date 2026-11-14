@@ -206,14 +206,14 @@ struct NativeWorkspaceTests {
 
   @Test func bundledRendererWorksAfterExecutableAndResourcesMove() throws {
     let f = try Fixture()
-    let binary = repository.appendingPathComponent(".build/debug/xcproj-pkl")
+    let binary = repository.appendingPathComponent(".build/debug/xcprojgen")
       .resolvingSymlinksInPath()
     let bundle = binary.deletingLastPathComponent().appendingPathComponent(
       "xcproj-pkl_PklRuntimeResources.bundle")
     try f.directory("Installed")
     try f.directory("OtherCwd")
     let installed = f.root.appendingPathComponent("Installed")
-    try FileManager.default.copyItem(at: binary, to: installed.appendingPathComponent("xcproj-pkl"))
+    try FileManager.default.copyItem(at: binary, to: installed.appendingPathComponent("xcprojgen"))
     try FileManager.default.copyItem(
       at: bundle, to: installed.appendingPathComponent(bundle.lastPathComponent))
     let source = try f.project(
@@ -226,7 +226,7 @@ struct NativeWorkspaceTests {
     )
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wrapper.path)
     let process = Process()
-    process.executableURL = installed.appendingPathComponent("xcproj-pkl")
+    process.executableURL = installed.appendingPathComponent("xcprojgen")
     process.currentDirectoryURL = f.root.appendingPathComponent("OtherCwd")
     process.arguments = ["validate", source.path, "--pkl", wrapper.path]
     let log = try f.file("process.log")
