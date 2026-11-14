@@ -1,0 +1,43 @@
+amends "@xcproj/Project.pkl"
+import "../Shared/Templates.pkl" as Shared
+
+name = "Demo"
+idNamespace = "com.example.demo"
+configFiles { ["Debug"] = "Config/Debug.xcconfig" }
+
+targets {
+    ["core"] = new Shared.ExtensionSafeFramework {
+        name = "DemoCore"
+        bundleSuffix = "core"
+    }
+    ["networking"] = new Shared.Swift6Framework {
+        name = "DemoNetworking"
+        bundleSuffix = "networking"
+        dependencies { new { target = "core" } }
+    }
+    ["notifications"] = new Shared.ExtensionSafeFramework {
+        name = "DemoNotifications"
+        bundleSuffix = "notifications"
+        dependencies { new { target = "core" } }
+    }
+    ["app"] = new Shared.App {
+        name = "DemoApp"
+        bundleSuffix = "demo.app"
+        dependencies {
+            new { target = "core"; embed = true }
+            new { target = "networking"; embed = true }
+            new { target = "notifications"; embed = true }
+            new { target = "notificationService"; link = false; embed = true }
+        }
+    }
+    ["notificationService"] = new Shared.NotificationService {
+        name = "DemoNotificationService"
+        bundleSuffix = "demo.app.notification-service"
+        dependencies { new { target = "notifications" } }
+    }
+    ["tests"] = new Shared.UnitTests {
+        name = "DemoCoreTests"
+        bundleSuffix = "core-tests"
+        dependencies { new { target = "core" } }
+    }
+}

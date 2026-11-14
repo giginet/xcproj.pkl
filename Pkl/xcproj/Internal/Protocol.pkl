@@ -32,6 +32,7 @@ class TargetInput {
   productId: String
   settings: Settings
   configFiles: Map<String, String>
+  infoPlistPathId: String?
   sources: List<SourceInput>
   dependencies: List<DependencyInput>
 }

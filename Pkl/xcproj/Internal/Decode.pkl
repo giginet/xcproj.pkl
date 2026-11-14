@@ -12,6 +12,7 @@ function target(raw: Dynamic): W.TargetInput = new {
   id = raw.id; productId = raw.productId
   settings = module.settings(raw.settings)
   configFiles = strings(raw.configFiles)
+  infoPlistPathId = raw.toMap().getOrNull("infoPlistPathId")
   sources = raw.sources.toList().map((s) -> source(s))
   dependencies = raw.dependencies.toList().map((d) -> dependency(d))
 }

@@ -36,6 +36,8 @@ targets {
 
 Use `import "@xcproj/Project.pkl" as X` to define reusable classes extending `X.Target` and reusable `X.Settings` objects. For a workspace, Main.pkl can amend `@xcproj/Workspace.pkl` and import local Project modules. The CLI defaults to `<dir>/Main.pkl`; `--entry` selects another module relative to `<dir>`. Run the resulting local entry through the matching Swift CLI; evaluating the public schemas produces an intermediate Snapshot, not the final Xcode project.
 
+Targets support `application`, `framework`, `tool`, `bundle`, `bundle.unit-test`, and `app-extension` product types. To embed an extension in an application, add a dependency with `link = false` and `embed = true`. Framework dependencies may be linked and embedded independently. An optional `infoPlist` names an existing file relative to `projectDir`; the renderer sets `INFOPLIST_FILE` relative to the generated project and disables automatic plist generation. The repository's `Examples/iOS` demonstrates inherited Swift 6 framework targets, an application, and a notification service extension.
+
 `xcprojgen generate <dir> --output-dir <directory>` writes `<directory>/<name>.xcodeproj` or `<directory>/<name>.xcworkspace`, according to the selected entry's Pkl type and `name`. Workspace members retain their own project output directories. Without `--output-dir`, `projectDir` or `workspaceDir` determines the output directory.
 
 For checkout-based development, a consumer may use a local dependency instead:

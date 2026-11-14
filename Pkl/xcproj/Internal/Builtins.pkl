@@ -19,7 +19,7 @@ function targetDefaults(p: Model, t: Model.Target): Wire.Settings =
     }
     when (t.platform == "iOS") { ["TARGETED_DEVICE_FAMILY"] = "1,2" }
     when (t.type != "tool") {
-      ["GENERATE_INFOPLIST_FILE"] = "YES"
+      ["GENERATE_INFOPLIST_FILE"] = if (t.infoPlist == null) "YES" else "NO"
       ["PRODUCT_BUNDLE_IDENTIFIER"] = "\(p.idNamespace).\(t.name.replaceAll(Regex("[^A-Za-z0-9.-]"), "-"))"
     }
     when (t.type == "framework") {
@@ -29,6 +29,11 @@ function targetDefaults(p: Model, t: Model.Target): Wire.Settings =
     }
     when (t.type == "application") {
       ["LD_RUNPATH_SEARCH_PATHS"] = List("$(inherited)", if (t.platform == "macOS") "@executable_path/../Frameworks" else "@executable_path/Frameworks")
+    }
+    when (t.type == "app-extension") {
+      ["APPLICATION_EXTENSION_API_ONLY"] = "YES"
+      ["SKIP_INSTALL"] = "YES"
+      ["LD_RUNPATH_SEARCH_PATHS"] = List("$(inherited)", if (t.platform == "macOS") "@executable_path/../Frameworks" else "@executable_path/Frameworks", if (t.platform == "macOS") "@executable_path/../../../../Frameworks" else "@executable_path/../../Frameworks")
     }
   }).toMap()
 

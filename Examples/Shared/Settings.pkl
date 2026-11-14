@@ -1,5 +1,5 @@
 module examples.Settings
-import "../../Pkl/xcproj/Project.pkl"
+import "@xcproj/Project.pkl"
 warnings: Project.Settings = new {
   base {
     ["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"

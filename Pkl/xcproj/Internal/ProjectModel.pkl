@@ -25,13 +25,14 @@ open class Settings {
 }
 open class Target {
   name: String(!isEmpty)
-  type: "application" | "framework" | "bundle" | "bundle.unit-test" | "tool"
+  type: "application" | "app-extension" | "framework" | "bundle" | "bundle.unit-test" | "tool"
   platform: "iOS" | "macOS"
   deploymentTarget: String(matches(Regex(#"\d+(\.\d+){0,2}"#)))?
   id: String(matches(Regex("[A-Fa-f0-9]{24}")))?
   productId: String(matches(Regex("[A-Fa-f0-9]{24}")))?
   settings: Settings = new {}
   configFiles: Mapping<String, String>
+  infoPlist: String(!isEmpty)?
   sources: Listing<Source>
   dependencies: Listing<Dependency>
 }

@@ -12,6 +12,8 @@ v2では、Targetの再利用にPklのクラス継承、Projectの再利用にmo
 
 Pklは外部プロセスとして起動します。既存のxcproj/workspaceを検証する場合はPklのインストールは不要です。
 
+サンプルはすべて `Main.pkl` を入口とし、`Examples/PklProject` でcheckout内のパッケージに依存します。[Examplesの説明](Examples/README.md)に、Swift 6のFrameworkテンプレート・アプリ・Notification Service Extensionの構成を記載しています。
+
 ## 実行
 
 ```sh
@@ -78,8 +80,8 @@ Workspace内の各Projectはそれぞれの `projectDir` に出力し、Workspac
 `Project.pkl` / `Workspace.pkl` の直接指定と、既存 `.xcworkspace` / `.xcodeproj` / `project.xcproj` の検証にも対応しています。
 
 ```sh
-swift run xcprojgen validate Examples/Workspace --entry Workspace.pkl
-swift run xcprojgen generate Examples/Tool/Project.pkl --output-dir /tmp/generated
+swift run xcprojgen validate Examples/Workspace
+swift run xcprojgen generate Examples/Tool --output-dir /tmp/generated
 swift run xcprojgen validate /tmp/generated/Tool.xcodeproj
 ```
 
@@ -225,7 +227,7 @@ Examples/Workspace/
     Catalog/Project.pkl
     DesignSystem/Project.pkl
     Networking/Project.pkl
-  Workspace.pkl
+  Main.pkl
 ```
 
 各Project.pkl:
@@ -235,17 +237,17 @@ amends "../../Shared/FrameworkProject.pkl"
 name = "Catalog"
 ```
 
-Workspace.pkl:
+Main.pkl:
 
 ```pkl
-amends "../../Pkl/xcproj/Workspace.pkl"
+amends "@xcproj/Workspace.pkl"
 name = "Modular"
 projects = import*("Modules/*/Project.pkl")
 ```
 
 ```sh
-swift run xcprojgen validate Examples/Workspace/Workspace.pkl
-swift run xcprojgen generate Examples/Workspace/Workspace.pkl
+swift run xcprojgen validate Examples/Workspace
+swift run xcprojgen generate Examples/Workspace
 swift run xcprojgen validate Examples/Workspace/Modular.xcworkspace
 
 # 各Projectは単独でも同じ内容で生成できます。
@@ -262,7 +264,7 @@ CLIに指定したentryはPkl評価前にもcanonical化します。Workspaceか
 
 ## パス・ID・出力の契約
 
-- ソースとxcconfigの相対パスは各Projectの`projectDir`基準です。
+- ソース・xcconfig・Targetの`infoPlist`の相対パスは各Projectの`projectDir`基準です。`infoPlist`は存在するファイルを指定し、生成先の移動時に`INFOPLIST_FILE`をリベースします。
 - sourceの`kind`は`folder`または`file`。folderの`excludes`は実在する正確な相対パスで、globは使えません。
 - 同一Target内のsourceの入れ子は拒否します。同一実体を指すsourceはsymlinkを解決して統合し、excludesを集合化します。
 - 複数Targetが同じsourceを持つ場合は、1つの参照とTargetごとのmembershipを生成します。
@@ -299,7 +301,7 @@ Swiftライブラリからは `PklTool` を共通の実行窓口として使い�
 
 ## 対応範囲と検証
 
-対応するproduct typeは`application`、`framework`、`bundle`、`bundle.unit-test`、`tool`です。platformはiOS/macOS、toolはmacOSのみです。依存は同じProject内に限定し、linkはFramework、embedはapplicationからFrameworkのみを許可します。
+対応するproduct typeは`application`、`app-extension`、`framework`、`bundle`、`bundle.unit-test`、`tool`です。platformはiOS/macOS、toolはmacOSのみです。依存は同じProject内に限定し、linkはFramework、embedはapplicationからFrameworkまたはApp Extensionを許可します。App Extensionの依存指定には`link = false; embed = true`を使います。
 
 モデル上の名前・型・configuration参照・依存先・循環・sourceの整合性をPklで検査します。さらにSwiftでAppleのXCSchemaと参照検証を行います。`validate`の成功はビルド成功を保証しません。
 
@@ -310,6 +312,7 @@ swift test
 PKL_EXEC="$(command -v pkl)" swift test
 PKL_EXEC="$(command -v pkl)" bash Scripts/smoke-test.sh
 PKL_EXEC="$(command -v pkl)" bash Scripts/workspace-smoke-test.sh
+PKL_EXEC="$(command -v pkl)" bash Scripts/ios-smoke-test.sh
 ```
 
 Pklを利用する統合テストは`PKL_EXEC`がない場合skipされます。統合テストではネイティブ継承、設定優先度、symlink、100 Projects / 200 Targets、Pkl起動回数、配布先へのresource移動を確認します。Swiftのみのテストは既存形式の検証とOS・出力制御を確認します。
@@ -318,7 +321,7 @@ Pklを利用する統合テストは`PKL_EXEC`がない場合skipされます。
 
 ## Swiftの整形
 
-`xcrun swift-format`を使い、インデントは `.swift-format` で4スペースに指定しています。`init` が作成するSwiftソースも4スペースです。
+`xcrun swift-format`を使います。`.swift-format` は `xcrun swift-format dump-configuration` の全設定を出力したもので、`indentation.spaces` と `tabWidth` を4に指定しています。`init` が作成するSwiftソースも4スペースです。
 
 ```sh
 git ls-files -z -- '*.swift' | xargs -0 xcrun swift-format format --in-place --configuration .swift-format

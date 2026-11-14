@@ -7,8 +7,8 @@ trap 'rm -rf "$scratch"' EXIT
 cd "$repo_root"
 swift build
 cli="$(swift build --show-bin-path)/xcprojgen"
-"$cli" validate Examples/Workspace/Workspace.pkl --pkl "${PKL_EXEC:-pkl}"
-"$cli" generate Examples/Workspace/Workspace.pkl --pkl "${PKL_EXEC:-pkl}"
+"$cli" validate Examples/Workspace --pkl "${PKL_EXEC:-pkl}"
+"$cli" generate Examples/Workspace --pkl "${PKL_EXEC:-pkl}"
 workspace="Examples/Workspace/Modular.xcworkspace"
 "$cli" validate "$workspace"
 xcodebuild -list -workspace "$workspace"

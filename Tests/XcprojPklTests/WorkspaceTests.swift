@@ -183,9 +183,20 @@ struct NativeWorkspaceTests {
 
     @Test func hundredProjectsUseTwoPklProcessesAndGenerateDeterministically() throws {
         let f = try Fixture()
-        let template = repository.appendingPathComponent(
-            "Examples/Workspace/Shared/FrameworkProject.pkl"
-        ).path
+        try f.file(
+            "PklProject",
+            "amends \"pkl:Project\"\ndependencies { [\"xcproj\"] = import(\(quoted(repository.appendingPathComponent("Pkl/xcproj/PklProject").path))) }\n"
+        )
+        try PklTool().resolveProject(at: f.root)
+        // Keep imported example modules inside this fixture's Pkl project so @xcproj resolves.
+        for path in ["Shared/Settings.pkl", "Workspace/Shared/FrameworkProject.pkl"] {
+            try f.file(
+                path,
+                String(
+                    contentsOf: repository.appendingPathComponent("Examples/\(path)"),
+                    encoding: .utf8))
+        }
+        let template = f.root.appendingPathComponent("Workspace/Shared/FrameworkProject.pkl").path
         for i in 0..<100 {
             let name = String(format: "Unit%03d", i)
             try f.file(

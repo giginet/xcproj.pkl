@@ -68,7 +68,7 @@ function project(p: W.ProjectInput, facts: W.HostFacts): Boolean =
         when (byKey.containsKey(d.target)) {
           check(t.platform == byKey[d.target].platform, "targets.\(t.key): dependency '\(d.target)' has a different platform")
           check(!d.link || byKey[d.target].type == "framework", "targets.\(t.key): only frameworks can be linked")
-          check(!d.embed || (byKey[d.target].type == "framework" && t.type == "application"), "targets.\(t.key): embedding is supported for application → framework dependencies only")
+          check(!d.embed || (List("framework", "app-extension").contains(byKey[d.target].type) && t.type == "application"), "targets.\(t.key): embedding is supported for application → framework/app-extension dependencies only")
         }
         check(t.dependencies.filter((other) -> other.target == d.target).every((other) -> other == d), "targets.\(t.key): conflicting dependency options for '\(d.target)'")
       }

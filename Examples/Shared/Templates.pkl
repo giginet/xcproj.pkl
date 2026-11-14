@@ -1,31 +1,59 @@
 module examples.Templates
-import "../../Pkl/xcproj/Project.pkl"
+import "@xcproj/Project.pkl" as X
 import "Settings.pkl" as Common
-open class SwiftTarget extends Project.Target {
-  local target = this
-  settings = Common.compiler
-  sources { new { path = "Sources/\(target.name)" } }
+
+open class SwiftTarget extends X.Target {
+    local target = this
+    settings = Common.compiler
+    sources { new { path = "Sources/\(target.name)" } }
 }
+
 open class MacTool extends SwiftTarget {
-  type = "tool"
-  platform = "macOS"
-  deploymentTarget = "14.0"
+    type = "tool"
+    platform = "macOS"
+    deploymentTarget = "14.0"
 }
+
 open class IOS extends SwiftTarget {
-  local target = this
-  hidden bundleSuffix: String
-  platform = "iOS"
-  deploymentTarget = "17.0"
-  settings { base { ["PRODUCT_BUNDLE_IDENTIFIER"] = "com.example.\(target.bundleSuffix)" } }
+    local target = this
+    hidden bundleSuffix: String
+    platform = "iOS"
+    deploymentTarget = "17.0"
+    settings { base { ["PRODUCT_BUNDLE_IDENTIFIER"] = "com.example.\(target.bundleSuffix)" } }
 }
-open class Framework extends IOS { type = "framework" }
-open class App extends IOS {
-  type = "application"
-  settings {
-    base {
-      ["INFOPLIST_KEY_UILaunchScreen_Generation"] = "YES"
-      ["INFOPLIST_KEY_UIApplicationSceneManifest_Generation"] = "YES"
+
+// A reusable Target subclass. Common.compiler enables Swift 6 language mode.
+open class Swift6Framework extends X.Target {
+    local target = this
+    hidden bundleSuffix: String
+    type = "framework"
+    platform = "iOS"
+    deploymentTarget = "17.0"
+    settings = (Common.compiler) {
+        base { ["PRODUCT_BUNDLE_IDENTIFIER"] = "com.example.\(target.bundleSuffix)" }
     }
-  }
+    sources { new { path = "Sources/\(target.name)" } }
 }
+
+// Further specialize the framework template for code shared with app extensions.
+open class ExtensionSafeFramework extends Swift6Framework {
+    settings { base { ["APPLICATION_EXTENSION_API_ONLY"] = "YES" } }
+}
+
+open class App extends IOS {
+    type = "application"
+    settings {
+        base {
+            ["INFOPLIST_KEY_UILaunchScreen_Generation"] = "YES"
+            ["MARKETING_VERSION"] = "1.0"
+            ["CURRENT_PROJECT_VERSION"] = "1"
+        }
+    }
+}
+
+open class NotificationService extends IOS {
+    type = "app-extension"
+    infoPlist = "Config/NotificationService-Info.plist"
+}
+
 open class UnitTests extends IOS { type = "bundle.unit-test" }

@@ -26,6 +26,7 @@ function target(p: Model, prefix: String, k: String, t: Model.Target): W.TargetI
   productId = t.productId ?? B.stableId(p.idNamespace, "product", k)
   settings = B.settings(p.configs, t.settings, B.targetDefaults(p, t), true)
   configFiles = module.configFiles(targetId(prefix, k), t.configFiles)
+  infoPlistPathId = if (t.infoPlist != null) "\(targetId(prefix, k)):infoPlist" else null
   sources = t.sources.toList().mapIndexed((i, s) -> new W.SourceInput {
     pathId = "\(targetId(prefix, k)):source:\(i)"
     kind = s.kind
@@ -58,6 +59,9 @@ function projectPaths(p: Model, k: String): List<W.PathRequest> =
       path(configId(prefix, config), ref("\(prefix):root", "self"), value, "file", true, "\(k).configFiles.\(config)")
     }
     for (key in p.targets.toMap().keys.toList().sort()) {
+      when (p.targets[key].infoPlist != null) {
+        path("\(targetId(prefix, key)):infoPlist", ref("\(prefix):root", "self"), p.targets[key].infoPlist!!, "file", true, "\(k).targets.\(key).infoPlist")
+      }
       for (config, value in p.targets[key].configFiles) {
         path(configId(targetId(prefix, key), config), ref("\(prefix):root", "self"), value, "file", true, "\(k).targets.\(key).configFiles.\(config)")
       }

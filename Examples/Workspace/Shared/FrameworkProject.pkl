@@ -1,5 +1,5 @@
 open module examples.FrameworkProject
-extends "../../../Pkl/xcproj/Project.pkl"
+extends "@xcproj/Project.pkl"
 import "../../Shared/Settings.pkl" as Common
 
 open class SwiftTarget extends Target {

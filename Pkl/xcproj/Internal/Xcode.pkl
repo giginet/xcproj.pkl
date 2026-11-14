@@ -11,9 +11,9 @@ class Owner {
 function owners(p: W.ProjectInput): List<Owner> =
   p.targets.flatMap((t) -> t.sources.map((s) -> new Owner { target = t; source = s }))
 function productName(t: W.TargetInput): String = t.name +
-  (if (t.type == "application") ".app" else if (t.type == "framework") ".framework" else if (t.type == "bundle.unit-test") ".xctest" else if (t.type == "bundle") ".bundle" else "")
+  (if (t.type == "application") ".app" else if (t.type == "app-extension") ".appex" else if (t.type == "framework") ".framework" else if (t.type == "bundle.unit-test") ".xctest" else if (t.type == "bundle") ".bundle" else "")
 function productType(t: W.TargetInput): String =
-  if (t.type == "application") "wrapper.application" else if (t.type == "framework") "wrapper.framework" else if (t.type == "bundle" || t.type == "bundle.unit-test") "wrapper.cfbundle" else "compiled.mach-o.executable"
+  if (t.type == "application") "wrapper.application" else if (t.type == "app-extension") "wrapper.app-extension" else if (t.type == "framework") "wrapper.framework" else if (t.type == "bundle" || t.type == "bundle.unit-test") "wrapper.cfbundle" else "compiled.mach-o.executable"
 function phase(path: String): String =
   let (ext = path.split(".").last.toLowerCase())
   if (List("swift", "m", "mm", "c", "cc", "cpp", "cxx").contains(ext)) "compile-sources" else if (List("h", "hpp").contains(ext)) "headers" else "resources"
@@ -74,9 +74,9 @@ function product(p: W.ProjectInput, t: W.TargetInput): Dynamic = new {
           when (d.link) { "\(consumer.name)/frameworks" }
           when (d.embed) {
             new Dynamic {
-              `build-phase` = "\(consumer.name)/copy/Embed Frameworks"
+              `build-phase` = "\(consumer.name)/copy/" + (if (t.type == "app-extension") "Embed App Extensions" else "Embed Frameworks")
               `code-sign-on-copy` = true
-              `header-preservation` = "remove-on-copy"
+              when (t.type == "framework") { `header-preservation` = "remove-on-copy" }
             }
           }
         }
@@ -91,11 +91,15 @@ function target(p: W.ProjectInput, facts: W.HostFacts, t: W.TargetInput): Dynami
   `product-type` = t.type
   `build-phases` = new Listing {
     "headers"; "compile-sources"; "frameworks"; "resources"
-    when (t.dependencies.any((d) -> d.embed)) {
+    when (t.dependencies.any((d) -> d.embed && p.targets.any((other) -> other.key == d.target && other.type == "framework"))) {
       new Dynamic { kind = "copy"; name = "Embed Frameworks"; `bundle-base-path` = "frameworks-directory" }
     }
+    when (t.dependencies.any((d) -> d.embed && p.targets.any((other) -> other.key == d.target && other.type == "app-extension"))) {
+      new Dynamic { kind = "copy"; name = "Embed App Extensions"; `bundle-base-path` = "plugins-directory" }
+    }
   }
-  `build-settings` = t.settings
+  `build-settings` = t.settings + (if (t.infoPlistPathId != null)
+    Map("INFOPLIST_FILE", P.fromBundle(facts, t.infoPlistPathId!!, "\(p.artifactId):bundle")) else Map())
   dependencies = t.dependencies.distinct.map((d) -> p.targets.filter((other) -> other.key == d.target).first.name)
   `specialized-configurations` = configurations(p, facts, t.configFiles, true)
 }

@@ -1,4 +1,4 @@
-amends "../../Pkl/xcproj/Project.pkl"
+amends "@xcproj/Project.pkl"
 import "../Shared/Templates.pkl" as Shared
 name = "Tool"
 idNamespace = "com.example.tool"
