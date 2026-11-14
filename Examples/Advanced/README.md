@@ -1,6 +1,6 @@
-# Swift Package・ビルドスクリプト・共有 Scheme
+# Swift Package, Build Scripts, and a Shared Scheme
 
-`Main.pkl` はローカル Swift Package のライブラリをリンクする macOS コマンドラインツールを生成します。`../Shared/Templates.pkl` の `MacTool` を継承するため、Swift 6 の設定やソースディレクトリの指定も共通化しています。
+`Main.pkl` generates a macOS command-line tool that links a library from a local Swift package. It extends `MacTool` from `../Shared/Templates.pkl` to reuse the Swift 6 settings and source directory configuration.
 
 ```sh
 swift run xcprojgen generate Examples/Advanced --output-dir /tmp/xcprojgen-advanced
@@ -11,26 +11,26 @@ xcodebuild -project /tmp/xcprojgen-advanced/Advanced.xcodeproj \
 /tmp/xcprojgen-advanced/DerivedData/Build/Products/Debug/AdvancedTool
 ```
 
-`PKL_EXEC` または CLI の `--pkl` で Pkl 実行ファイルを指定できます。出力先を移動しても、ローカル Package とソースへの参照は元のディレクトリを指します。
+Use `PKL_EXEC` or the CLI's `--pkl` option to specify the Pkl executable. References to the local package and source files continue to point to their original directories when the output directory changes.
 
-名前の使い分けを確認できるよう、以下は意図的に異なる値にしています。
+The following names are intentionally different to demonstrate their distinct roles:
 
-| 用途 | 名前 |
+| Role | Name |
 | --- | --- |
-| Pkl の依存指定用 alias | `support` |
-| Package のディレクトリ | `LocalSupport` |
+| Alias used to declare the dependency in Pkl | `support` |
+| Package directory | `LocalSupport` |
 | `Package.name` | `AdvancedSupportPackage` |
-| リンクする library product | `AdvancedSupport` |
-| Swift で import する module | `SupportCore` |
+| Library product to link | `AdvancedSupport` |
+| Module to import in Swift | `SupportCore` |
 
-`preBuildScripts` は通常のビルドフェーズより前にマーカーファイルを書き込みます。`postBuildScripts` はそのファイルと生成済み実行ファイルを確認してから、別のマーカーを書き込みます。入出力を宣言し、ビルドの依存関係に組み込んでいます。マーカーは `DERIVED_FILE_DIR` 内に生成されます。
+`preBuildScripts` writes a marker file before the standard build phases. `postBuildScripts` checks that marker and the built executable before writing another marker. The scripts declare their inputs and outputs so they participate in the build dependency graph. Both markers are created in `DERIVED_FILE_DIR`.
 
-`schemes` は `AdvancedTool` という共有 Scheme を生成します。Run・Profile・Analyze・Archive の設定を含み、`xcshareddata/xcschemes/AdvancedTool.xcscheme` として出力されます。
+`schemes` generates a shared scheme named `AdvancedTool`, including Run, Profile, Analyze, and Archive settings. It is written to `xcshareddata/xcschemes/AdvancedTool.xcscheme`.
 
-生成・バリデーション・ビルド・実行・スクリプトの結果をまとめて確認するには、リポジトリルートで次を実行してください。
+To verify generation, validation, building, execution, and script results together, run the following from the repository root:
 
 ```sh
 PKL_EXEC=/path/to/pkl Scripts/advanced-smoke-test.sh
 ```
 
-この例は外部の Swift Package をダウンロードしません。
+This example does not download external Swift packages.
