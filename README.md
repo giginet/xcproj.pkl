@@ -11,6 +11,7 @@
 [![SwiftPM](https://img.shields.io/badge/SwiftPM-compatible-green?logo=swift&style=flat-square)](https://swift.org/package-manager/)
 [![Documentation](https://img.shields.io/badge/Documentation-available-green?style=flat-square)](./Pkl/xcproj/README.md)
 [![CLI Platform: macOS 14+](https://img.shields.io/badge/CLI%20Platform-macOS%2014%2B-lightgray?logo=apple&style=flat-square)](./Package.swift)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-darkgray?style=flat-square)](./LICENSE)
 
 xcproj.pkl is a DSL for describing the `*.xcproj` JSON format. It lets you define Xcode projects using the [apple/pkl](https://github.com/apple/pkl) language.
 
@@ -175,3 +176,5 @@ open Examples/MixedWorkspace/Mixed.xcworkspace
 - [Updating Your Xcode Project Configuration File Format (Apple Developer)](https://developer.apple.com/documentation/xcode/updating-your-xcode-project-configuration-file-format)
 
 ### License
+
+xcproj.pkl is licensed under the [Apache License, Version 2.0](./LICENSE).
