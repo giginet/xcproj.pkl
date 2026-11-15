@@ -1,6 +1,6 @@
 import ArgumentParser
 import Foundation
-import XcprojPkl
+import XCProjGenKit
 
 enum InitializationType: String, ExpressibleByArgument {
     case workspace

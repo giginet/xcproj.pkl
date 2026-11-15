@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import XcprojPkl
+@testable import XCProjGenKit
 
 @Suite(.enabled(if: hasPkl, "Set PKL_EXEC to exercise shared scheme generation"))
 struct SchemeTests {

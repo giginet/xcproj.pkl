@@ -2,7 +2,7 @@ import Foundation
 import Testing
 import XcodeProjectFormat
 
-@testable import XcprojPkl
+@testable import XCProjGenKit
 
 @Suite(.enabled(if: hasPkl, "Set PKL_EXEC to validate the runnable examples"))
 struct ExampleTests {

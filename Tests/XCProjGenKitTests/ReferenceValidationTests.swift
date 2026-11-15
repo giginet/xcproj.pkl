@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import XcprojPkl
+@testable import XCProjGenKit
 
 private let referenceDocument = #"""
     {

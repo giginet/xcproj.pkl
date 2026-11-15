@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import XcprojPkl
+@testable import XCProjGenKit
 
 let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent()

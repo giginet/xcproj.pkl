@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "xcproj-pkl",
+    name: "xcprojgen",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "xcprojgen", targets: ["XcprojPklCLI"]),
-        .library(name: "XcprojPkl", targets: ["XcprojPkl"]),
+        .executable(name: "xcprojgen", targets: ["xcprojgen"]),
+        .library(name: "XCProjGenKit", targets: ["XCProjGenKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/xcode-project-format", exact: "0.1.0"),
@@ -25,21 +25,21 @@ let package = Package(
             resources: [.copy("xcproj/Internal")]
         ),
         .target(
-            name: "XcprojPkl",
+            name: "XCProjGenKit",
             dependencies: [
                 "PklRuntimeResources",
                 .product(name: "XcodeProjectFormat", package: "xcode-project-format"),
             ]),
         .executableTarget(
-            name: "XcprojPklCLI",
+            name: "xcprojgen",
             dependencies: [
-                "XcprojPkl",
+                "XCProjGenKit",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]),
         .testTarget(
-            name: "XcprojPklTests",
+            name: "XCProjGenKitTests",
             dependencies: [
-                "XcprojPkl",
+                "XCProjGenKit",
                 .product(name: "XcodeProjectFormat", package: "xcode-project-format"),
             ]),
     ]

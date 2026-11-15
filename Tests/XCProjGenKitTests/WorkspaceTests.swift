@@ -2,7 +2,7 @@ import Foundation
 import Testing
 import XcodeProjectFormat
 
-@testable import XcprojPkl
+@testable import XCProjGenKit
 
 @Suite(.enabled(if: hasPkl, "Set PKL_EXEC to run real Pkl workspace tests"))
 struct NativeWorkspaceTests {
@@ -231,7 +231,7 @@ struct NativeWorkspaceTests {
         let binary = repository.appendingPathComponent(".build/debug/xcprojgen")
             .resolvingSymlinksInPath()
         let bundle = binary.deletingLastPathComponent().appendingPathComponent(
-            "xcproj-pkl_PklRuntimeResources.bundle")
+            "xcprojgen_PklRuntimeResources.bundle")
         try f.directory("Installed")
         try f.directory("OtherCwd")
         let installed = f.root.appendingPathComponent("Installed")

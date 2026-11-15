@@ -1,6 +1,6 @@
 import ArgumentParser
 import Foundation
-import XcprojPkl
+import XCProjGenKit
 
 @main
 struct Xcprojgen: ParsableCommand {

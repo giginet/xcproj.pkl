@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 import Testing
 
-@testable import XcprojPkl
+@testable import XCProjGenKit
 
 private func packageCommand(
     _ executable: String, _ arguments: [String], fixture: Fixture, expectedStatus: Int32 = 0

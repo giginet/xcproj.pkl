@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import XcprojPkl
+@testable import XCProjGenKit
 
 private struct CLIResult {
     let status: Int32

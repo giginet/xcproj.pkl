@@ -2,7 +2,7 @@ import Foundation
 import Testing
 import XcodeProjectFormat
 
-@testable import XcprojPkl
+@testable import XCProjGenKit
 
 private let validDocument = #"""
     {
