@@ -75,9 +75,9 @@ swift run xcprojgen validate MyWorkspace --entry Projects/Core/Project.pkl
 
 `--output-dir` (short form: `-o`) specifies the output directory. The entry-point Pkl module determines the bundle name and extension. A workspace with `name = "App"` generates `<output-dir>/App.xcworkspace`; a project generates `<output-dir>/App.xcodeproj`. Swift does not accept a bundle name or extension, or check the extension of the output argument. When `--entry` is specified, the selected Pkl module still determines the name and type.
 
-Each project in a workspace is written to its own `projectDir`, and workspace references are adjusted accordingly. Without `--output-dir`, the output is `workspaceDir/name.xcworkspace` for a workspace or `projectDir/name.xcodeproj` for a project. Relative output directories are resolved against the CLI working directory.
+Each generated project in a workspace is written to its own `projectDir`, and workspace references are adjusted accordingly. Existing project bundles remain in place. Without `--output-dir`, the output is `workspaceDir/name.xcworkspace` for a workspace or `projectDir/name.xcodeproj` for a project. Relative output directories are resolved against the CLI working directory.
 
-You can also pass `Project.pkl` or `Workspace.pkl` directly, or validate an existing `.xcworkspace`, `.xcodeproj`, or `project.xcproj`.
+You can also pass `Project.pkl` or `Workspace.pkl` directly. Direct validation of an `.xcworkspace` checks its XML and project directories; direct validation of an `.xcodeproj` or `project.xcproj` checks JSON project contents. Direct validation of legacy `project.pbxproj` is unsupported.
 
 ```sh
 swift run xcprojgen validate Examples/Workspace
@@ -262,6 +262,29 @@ The CLI also canonicalizes the entry path before Pkl evaluation. Relative Pkl im
 
 Registering the same canonical project twice, or using duplicate or nested output paths, is an error. Use the typed `RemoteTargetDependency` and `ImportedProduct` classes for dependencies between projects, specifying the referenced target and product IDs explicitly.
 
+### Including existing Xcode projects
+
+`Workspace.importXcodeproj(path)` returns an `ExistingProject` reference for the workspace's `projects` mapping. It requires an existing directory with an `.xcodeproj` extension and treats its contents as opaque. Mix these references with imported Pkl project modules, or use them for every workspace member:
+
+```pkl
+amends "@xcproj/Workspace.pkl"
+import "Projects/App/Project.pkl" as App
+
+name = "AppWorkspace"
+projects {
+  ["app"] = App
+  ["legacy"] = module.importXcodeproj("Vendor/Legacy.xcodeproj")
+}
+```
+
+Relative paths use `workspaceDir`; absolute paths are also accepted. Moving the workspace with `--output-dir` rebases its XML references. Imported project bundles are not generation destinations. Canonical paths are used to reject duplicate imports and collisions with generated output.
+
+Imported project contents are not inspected: neither `project.xcproj` nor `project.pbxproj` is required or parsed. CLI project counts include generated and existing members; target counts include generated targets only.
+
+Importing a bundle does not turn its targets into Pkl `Target` objects. Generated workspace schemes can reference generated targets; use the imported project's own shared schemes for its targets. Workspace membership alone does not create cross-project target dependencies.
+
+The [MixedWorkspace example](Examples/README.md#mixing-generated-and-existing-projects) combines a generated tool project with a checked-in legacy project and shared scheme.
+
 ## Path, ID, and output guarantees
 
 - Relative paths for sources, xcconfig files, and target `infoPlist` files use each project's `projectDir`. `infoPlist` must point to an existing file; `INFOPLIST_FILE` is rebased when output moves.
@@ -271,8 +294,8 @@ Registering the same canonical project twice, or using duplicate or nested outpu
 - The target Mapping key is its stable identifier. Dependencies use this key in their `target` field.
 - IDs are the first 24 hexadecimal digits of the SHA-256 hash of a UTF-8 string containing the namespace, kind, and key, separated by NUL characters. Renaming a target preserves its ID as long as its key stays the same. Keep `idNamespace` fixed when renaming a project.
 - You can also specify custom `id` and `productId` values. Duplicate IDs are detected case-insensitively.
-- After validating all projects, `generate` checks every output destination before writing. It does not overwrite bundles containing a legacy `project.pbxproj`.
-- Only `project.xcproj`, `contents.xcworkspacedata`, and shared schemes declared in Pkl are updated. Other schemes and user settings are preserved, and files with identical bytes are not rewritten.
+- After validating generated projects and workspace references, `generate` checks every output destination before writing. It does not overwrite bundles containing a legacy `project.pbxproj`.
+- Only generated `project.xcproj`, `contents.xcworkspacedata`, and shared schemes declared in Pkl are updated. Imported project bundles remain read-only. Other schemes and user settings are preserved, and files with identical bytes are not rewritten.
 - Writes are atomic per file. Rollback of an entire workspace is not guaranteed, and projects removed from a workspace are not deleted automatically.
 
 ## Architecture
@@ -298,7 +321,7 @@ The user module is evaluated once to produce a fixed snapshot. Swift then suppli
 
 Swift handles the CLI, Pkl process execution, filesystem path information, validation with Apple's XCSchema, reference validation for existing output, and file writes. Pkl handles target inheritance, settings composition, ID calculation, and JSON/XML construction. Since validating existing output does not use Pkl, Swift's `ProjectValidator` and `WorkspaceValidator` perform that validation.
 
-In the Swift library, `PklTool` is the common interface for execution. Create generation plans with `GenerationPlan.compile(source:tool:properties:outputDirectory:)`.
+In the Swift library, `PklTool` is the common interface for execution. Create generation plans with `GenerationPlan.compile(source:tool:properties:outputDirectory:)`. `GenerationPlan.projectCount` includes generated and imported projects; `targetCount` counts generated targets only.
 
 The internal Pkl modules are included in a SwiftPM resource bundle. When moving the executable, place `xcproj-pkl_PklRuntimeResources.bundle` in the same directory.
 
@@ -356,7 +379,7 @@ The [Advanced example](Examples/Advanced/README.md) demonstrates local package l
 
 Pkl checks model names, types, configuration references, dependencies, cycles, and source consistency. Swift then validates with Apple's XCSchema and checks references. Successful validation does not guarantee a successful build.
 
-Validation of existing workspaces supports groups and `group:`, `container:`, and `absolute:` references, detecting missing and duplicate entries. XML entities, nested workspaces, and legacy pbxproj files are unsupported. Write-specific checks for legacy bundles and output file/directory conflicts run before generation writes any files.
+Validation of existing workspaces checks XML membership and referenced `.xcodeproj` directories, detecting missing and duplicate entries. It supports groups and `group:`, `container:`, and `absolute:` references. Project contents are not inspected, and the CLI reports only the project count. XML entities and nested workspaces are unsupported. To validate a JSON project's contents, pass its `.xcodeproj` bundle or `project.xcproj` file directly; legacy project contents are not supported by this validator. Write-specific checks for legacy bundles and output file/directory conflicts run before generation writes any files.
 
 ```sh
 swift test

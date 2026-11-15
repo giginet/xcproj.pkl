@@ -7,6 +7,7 @@ import "Projection.pkl" as Projection
 import "SchemaRender.pkl" as R
 import "Schemes.pkl" as Schemes
 import "SchemeModel.pkl" as SchemeModel
+import "WorkspaceModel.pkl" as WorkspaceModel
 
 function ref(identifier: String, relation: String): W.PathBase = new { kind = "request"; id = identifier; location = relation }
 function uri(value: String): W.PathBase = new { kind = "uri"; uri = value }
@@ -114,18 +115,25 @@ function single(p: Model): W.Snapshot = new {
   artifacts = List(artifact(projectId("project"), "project")) + Schemes.artifacts(schemes)
 }
 
-function workspace(label: String, directory: String, source: String, entries: Mapping<String, Model>, schemeEntries: Mapping<String, SchemeModel.Scheme>): W.Snapshot =
+function workspace(label: String, directory: String, source: String, entries: Mapping<String, WorkspaceModel.WorkspaceProject>, schemeEntries: Mapping<String, SchemeModel.Scheme>): W.Snapshot =
   let (keys = entries.toMap().keys.toList().sort())
+  let (generatedKeys = keys.filter((k) -> entries[k] is Model))
+  let (existingKeys = keys.filter((k) -> entries[k] is WorkspaceModel.ExistingProject))
   new {
     kind = "workspace"
     rootArtifactId = "workspace"
-    projects = keys.map((k) -> project(entries[k], k))
-    schemes = keys.flatMap((k) -> Schemes.projectEntries(entries[k].schemes, k, projectId(k))) + Schemes.workspaceEntries(schemeEntries)
-    paths = keys.flatMap((k) -> projectPaths(entries[k], k)) + List(
+    projects = generatedKeys.map((k) -> project(entries[k] as Model, k))
+    existingProjects = existingKeys.map((k) -> new W.ExistingProjectInput {
+      key = k; bundlePathId = "\(projectId(k)):bundle"
+    })
+    schemes = generatedKeys.flatMap((k) -> Schemes.projectEntries((entries[k] as Model).schemes, k, projectId(k))) + Schemes.workspaceEntries(schemeEntries)
+    paths = generatedKeys.flatMap((k) -> projectPaths(entries[k] as Model, k)) + existingKeys.map((k) ->
+      path("\(projectId(k)):bundle", ref("workspace:root", "self"), (entries[k] as WorkspaceModel.ExistingProject).path, "directory", true, "\(k) existing project")
+    ) + List(
       path("workspace:module", uri(source), "", "file", true, "Workspace module"),
       path("workspace:root", ref("workspace:module", "parent"), directory, "directory", true, "workspaceDir"),
       path("workspace:bundle", ref("workspace:root", "self"), "\(label).xcworkspace", "any", false, "Workspace output"),
       path("workspace:file", ref("workspace:bundle", "self"), "contents.xcworkspacedata", "any", false, "Workspace output file")
     ) + Schemes.paths(schemes)
-    artifacts = keys.map((k) -> artifact(projectId(k), "project")) + List(artifact("workspace", "workspace")) + Schemes.artifacts(schemes)
+    artifacts = generatedKeys.map((k) -> artifact(projectId(k), "project")) + List(artifact("workspace", "workspace")) + Schemes.artifacts(schemes)
   }

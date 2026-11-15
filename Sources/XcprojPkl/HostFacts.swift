@@ -8,6 +8,25 @@ struct InputManifest: Decodable {
     let rootArtifactId: String
     let paths: [PathRequest]
     let artifacts: [ArtifactRequest]
+    let existingProjects: [ExistingProjectRequest]
+
+    private enum CodingKeys: String, CodingKey {
+        case protocolVersion, schemaVersion, kind, rootArtifactId, paths, artifacts,
+            existingProjects
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        protocolVersion = try values.decode(Int.self, forKey: .protocolVersion)
+        schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
+        kind = try values.decode(ArtifactKind.self, forKey: .kind)
+        rootArtifactId = try values.decode(String.self, forKey: .rootArtifactId)
+        paths = try values.decode([PathRequest].self, forKey: .paths)
+        artifacts = try values.decode([ArtifactRequest].self, forKey: .artifacts)
+        existingProjects =
+            try values.decodeIfPresent(
+                [ExistingProjectRequest].self, forKey: .existingProjects) ?? []
+    }
 
     func validate() throws {
         guard protocolVersion == 1, schemaVersion == 2 else {
@@ -20,9 +39,10 @@ struct InputManifest: Decodable {
             let root = artifacts.first(where: { $0.id == rootArtifactId }), root.kind == kind
         else { throw ProjectError("Invalid or duplicate path/artifact identifiers in Snapshot") }
         let workspaceCount = artifacts.filter { $0.kind == .workspace }.count
+        let projectCount = artifacts.filter { $0.kind == .project }.count
         guard kind != .scheme, workspaceCount == (kind == .workspace ? 1 : 0),
-            kind != .project || artifacts.filter({ $0.kind == .project }).count == 1,
-            artifacts.contains(where: { $0.kind == .project })
+            kind != .project || (projectCount == 1 && existingProjects.isEmpty),
+            projectCount + existingProjects.count > 0
         else { throw ProjectError("Invalid root artifact or Snapshot artifact set") }
         let pathIDs = Set(paths.map(\.id))
         for artifact in artifacts {
@@ -31,7 +51,24 @@ struct InputManifest: Decodable {
                 throw ProjectError("Artifact \(artifact.id) refers to unknown paths")
             }
         }
+        guard Set(existingProjects.map(\.key)).count == existingProjects.count,
+            Set(existingProjects.map(\.bundlePathId)).count == existingProjects.count,
+            existingProjects.allSatisfy({ !$0.key.isEmpty })
+        else { throw ProjectError("Invalid or duplicate existing project identifiers in Snapshot") }
+        for project in existingProjects {
+            guard let request = paths.first(where: { $0.id == project.bundlePathId }),
+                request.expectedKind == .directory, request.mustExist
+            else {
+                throw ProjectError(
+                    "Existing project \(project.key) requires an existing directory path")
+            }
+        }
     }
+}
+
+struct ExistingProjectRequest: Decodable {
+    let key: String
+    let bundlePathId: String
 }
 
 enum ArtifactKind: String, Decodable, Sendable { case project, workspace, scheme }

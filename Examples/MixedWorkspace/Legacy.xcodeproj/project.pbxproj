@@ -1,0 +1,80 @@
+// !$*UTF8*$!
+{
+    archiveVersion = 1;
+    classes = {};
+    objectVersion = 56;
+    objects = {
+        A10000000000000000000001 /* Project object */ = {
+            isa = PBXProject;
+            attributes = { LastUpgradeCheck = 2730; };
+            buildConfigurationList = A10000000000000000000005;
+            compatibilityVersion = "Xcode 14.0";
+            developmentRegion = en;
+            hasScannedForEncodings = 0;
+            knownRegions = (en, Base);
+            mainGroup = A10000000000000000000002;
+            productRefGroup = A10000000000000000000003;
+            projectDirPath = "";
+            projectRoot = "";
+            targets = (A10000000000000000000004);
+        };
+        A10000000000000000000002 = {
+            isa = PBXGroup;
+            children = (A10000000000000000000003);
+            sourceTree = "<group>";
+        };
+        A10000000000000000000003 /* Products */ = {
+            isa = PBXGroup;
+            children = ();
+            name = Products;
+            sourceTree = "<group>";
+        };
+        A10000000000000000000004 /* Legacy */ = {
+            isa = PBXAggregateTarget;
+            buildConfigurationList = A10000000000000000000006;
+            buildPhases = ();
+            dependencies = ();
+            name = Legacy;
+            productName = Legacy;
+        };
+        A10000000000000000000005 = {
+            isa = XCConfigurationList;
+            buildConfigurations = (
+                A10000000000000000000007,
+                A10000000000000000000008,
+            );
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Release;
+        };
+        A10000000000000000000006 = {
+            isa = XCConfigurationList;
+            buildConfigurations = (
+                A10000000000000000000009,
+                A1000000000000000000000A,
+            );
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Release;
+        };
+        A10000000000000000000007 = {
+            isa = XCBuildConfiguration;
+            buildSettings = { SDKROOT = macosx; };
+            name = Debug;
+        };
+        A10000000000000000000008 = {
+            isa = XCBuildConfiguration;
+            buildSettings = { SDKROOT = macosx; };
+            name = Release;
+        };
+        A10000000000000000000009 = {
+            isa = XCBuildConfiguration;
+            buildSettings = {};
+            name = Debug;
+        };
+        A1000000000000000000000A = {
+            isa = XCBuildConfiguration;
+            buildSettings = {};
+            name = Release;
+        };
+    };
+    rootObject = A10000000000000000000001;
+}

@@ -19,6 +19,34 @@ swift run xcprojgen generate Examples/iOS --output-dir /tmp/xcprojgen-ios
 
 [Advanced](Advanced/README.md) is a macOS tool that combines a local Swift package, pre- and post-build scripts, and a shared scheme. Generate it with `swift run xcprojgen generate Examples/Advanced --output-dir /tmp/xcprojgen-advanced`.
 
+## Mixing generated and existing projects
+
+`MixedWorkspace/Main.pkl` combines the Pkl project in `Tool/Main.pkl` with the checked-in legacy `MixedWorkspace/Legacy.xcodeproj`:
+
+```pkl
+amends "@xcproj/Workspace.pkl"
+import "../Tool/Main.pkl" as Tool
+
+name = "Mixed"
+projects {
+  ["tool"] = Tool
+  ["legacy"] = module.importXcodeproj("Legacy.xcodeproj")
+}
+```
+
+`Legacy` has an aggregate target and an existing shared scheme. It needs no source files or signing. Generation writes `Tool/Tool.xcodeproj` and the workspace, while leaving the existing project and scheme unchanged. The example's generated `Hello` workspace scheme selects `tool/hello`; Xcode also discovers the existing `Legacy` scheme.
+
+```sh
+swift run xcprojgen validate Examples/MixedWorkspace
+swift run xcprojgen generate Examples/MixedWorkspace --output-dir /tmp/xcprojgen-mixed
+swift run xcprojgen validate /tmp/xcprojgen-mixed/Mixed.xcworkspace
+xcrun xcodebuild -list -workspace /tmp/xcprojgen-mixed/Mixed.xcworkspace
+xcrun xcodebuild -workspace /tmp/xcprojgen-mixed/Mixed.xcworkspace -scheme Legacy build
+xcrun xcodebuild -workspace /tmp/xcprojgen-mixed/Mixed.xcworkspace -scheme Hello build
+```
+
+`importXcodeproj` also accepts absolute paths. Relative paths use `workspaceDir`; `--output-dir` rebases the workspace reference without relocating the existing project. The importer checks that the `.xcodeproj` directory exists without inspecting its contents. For an existing-only workspace, omit the `tool` entry and generated `Hello` scheme. Existing target definitions are not exposed as Pkl objects, so generated schemes cannot select those targets. Pkl validation and generation report two projects and one generated target for this example; direct workspace validation reports two projects.
+
 ## Swift 6 and a Notification Service Extension
 
 `Swift6Framework` in `Shared/Templates.pkl` extends `Target` from the public schema. The `compiler` settings imported from `Shared/Settings.pkl` set `SWIFT_VERSION = "6.0"`, so the generated frameworks use Swift 6 language mode.

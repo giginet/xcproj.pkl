@@ -168,7 +168,7 @@ struct NativeCLITests {
         let arguments = [root.path, "--output-dir", relativeOutput]
         let validated = try cli(["validate"] + arguments, fixture: f, environment: environment)
         try #require(validated.status == 0, "\(validated.text)")
-        #expect(validated.text.contains("1 projects, 2 targets"))
+        #expect(validated.text.contains("1 projects, 2 generated targets"))
         #expect(
             FileManager.default.fileExists(
                 atPath: root.appendingPathComponent("PklProject.deps.json").path))
@@ -180,7 +180,7 @@ struct NativeCLITests {
         let generated = try cli(["generate"] + arguments, fixture: f, environment: environment)
         try #require(generated.status == 0, "\(generated.text)")
         if type == "workspace" {
-            #expect(try WorkspaceValidator.validate(destination).targetCount == 2)
+            #expect(try WorkspaceValidator.validate(destination).projectCount == 1)
         } else {
             #expect(
                 try ProjectValidator.validate(

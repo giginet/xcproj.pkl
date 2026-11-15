@@ -60,6 +60,10 @@ function snapshot(raw: Dynamic): W.Snapshot = new {
   protocolVersion = raw.protocolVersion; schemaVersion = raw.schemaVersion; kind = raw.kind
   rootArtifactId = raw.rootArtifactId
   projects = raw.projects.toList().map((p) -> project(p))
+  existingProjects = if (optional(raw, "existingProjects") == null) List()
+    else raw.existingProjects.toList().map((p) -> new W.ExistingProjectInput {
+      key = p.key; bundlePathId = p.bundlePathId
+    })
   paths = raw.paths.toList().map((p) -> path(p))
   artifacts = raw.artifacts.toList().map((a) -> artifact(a))
   schemes = raw.schemes.toList().map((s) -> Schemes.decode(s))

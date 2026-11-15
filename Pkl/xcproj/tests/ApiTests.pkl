@@ -29,6 +29,10 @@ local shared: X.Settings = new {
 local specialized = (shared) {
   configs { ["Debug"] { base { ["ENABLE_TESTABILITY"] = "YES" } } }
 }
+local workspaceProjects: Mapping<String, Workspace.WorkspaceProject> = new {
+  ["Generated"] { name = "Inferred" }
+  ["Existing"] = Workspace.importXcodeproj("Vendor/Legacy.xcodeproj")
+}
 
 facts {
   ["public module classes"] {
@@ -36,6 +40,9 @@ facts {
     X.schemaVersion == 2
     Workspace.kind == "workspace"
     Workspace.schemaVersion == 2
+  }
+  ["workspace project inference"] {
+    workspaceProjects["Generated"].name == "Inferred"
   }
   ["target amendments remain late bound"] {
     base.name == "Core"

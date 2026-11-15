@@ -2,11 +2,9 @@ import Foundation
 
 public struct WorkspaceValidation: Sendable {
     public let projectCount: Int
-    public let targetCount: Int
 }
 
-/// Validates workspace membership and each referenced JSON project.
-/// Project-to-project dependency resolution and scheme validation are not performed.
+/// Validates workspace XML and referenced directories without reading project contents.
 public enum WorkspaceValidator {
     public static func validate(_ workspace: URL) throws -> WorkspaceValidation {
         guard workspace.pathExtension == "xcworkspace" else {
@@ -15,25 +13,15 @@ public enum WorkspaceValidator {
         let data = try Data(
             contentsOf: workspace.appendingPathComponent("contents.xcworkspacedata"))
         let projects = try projectURLs(data: data, workspace: workspace)
-        var targetCount = 0
-        var diagnostics: [String] = []
         for project in projects {
-            do {
-                let file = project.appendingPathComponent("project.xcproj")
-                if !FileManager.default.fileExists(atPath: file.path),
-                    FileManager.default.fileExists(
-                        atPath: project.appendingPathComponent("project.pbxproj").path)
-                {
-                    throw ProjectError(
-                        "Only JSON project.xcproj files are supported; found a legacy project")
-                }
-                targetCount += try ProjectValidator.validate(data: Data(contentsOf: file))
-            } catch {
-                diagnostics.append("\(project.path): \(error.localizedDescription)")
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: project.path, isDirectory: &isDirectory),
+                isDirectory.boolValue
+            else {
+                throw ProjectError("Expected an existing .xcodeproj directory: \(project.path)")
             }
         }
-        if !diagnostics.isEmpty { throw ProjectError(diagnostics) }
-        return WorkspaceValidation(projectCount: projects.count, targetCount: targetCount)
+        return WorkspaceValidation(projectCount: projects.count)
     }
 
     static func projectURLs(data: Data, workspace: URL) throws -> [URL] {
@@ -103,10 +91,10 @@ private final class WorkspaceXMLReader: NSObject, XMLParserDelegate {
         if prefix != "absolute", path.hasPrefix("/") {
             throw ProjectError("Expected a relative workspace location: \(value)")
         }
-        let resolved = URL(
-            fileURLWithPath: path.isEmpty ? "." : path, isDirectory: true, relativeTo: base
-        )
-        .standardizedFileURL.resolvingSymlinksInPath()
+        let resolved = canonicalFileURL(
+            URL(
+                fileURLWithPath: path.isEmpty ? "." : path, isDirectory: true, relativeTo: base
+            ))
         return URL(fileURLWithPath: resolved.path, isDirectory: true)
     }
 

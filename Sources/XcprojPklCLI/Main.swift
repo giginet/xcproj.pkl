@@ -141,7 +141,7 @@ struct Generate: ParsableCommand {
         let generated = try evaluation.plan(source, outputDirectory: output.url)
         let changed = try generated.write()
         print(
-            "\(changed ? "Generated" : "Unchanged") \(generated.destination.path) (\(generated.projectCount) projects, \(generated.targetCount) targets)"
+            "\(changed ? "Generated" : "Unchanged") \(generated.destination.path) (\(generated.projectCount) projects, \(generated.targetCount) generated targets)"
         )
     }
 }
@@ -151,7 +151,8 @@ struct Validate: ParsableCommand {
         abstract:
             "Resolve dependencies and validate a project or workspace without writing generated artifacts."
     )
-    @Argument(help: "Project directory, .pkl module, .xcworkspace, .xcodeproj, or project.xcproj.")
+    @Argument(
+        help: "Project directory, .pkl module, .xcworkspace, JSON .xcodeproj, or project.xcproj.")
     var dir: String
     @OptionGroup var entry: EntryOptions
     @OptionGroup var output: OutputOptions
@@ -168,26 +169,27 @@ struct Validate: ParsableCommand {
             throw ValidationError(
                 "--pkl, --property, --entry, and --output-dir apply only to Pkl input")
         }
-        let count: Int
-        let projectCount: Int
+        let summary: String
         switch input.pathExtension {
         case "xcworkspace":
             let result = try WorkspaceValidator.validate(input)
-            count = result.targetCount
-            projectCount = result.projectCount
+            summary = "\(result.projectCount) projects"
         case "xcodeproj", "xcproj":
-            projectCount = 1
             let file =
                 input.pathExtension == "xcodeproj"
                 ? input.appendingPathComponent("project.xcproj") : input
-            count = try ProjectValidator.validate(data: Data(contentsOf: file))
+            guard FileManager.default.fileExists(atPath: file.path) else {
+                throw ValidationError(
+                    "Direct project validation requires JSON project.xcproj: \(file.path)")
+            }
+            let count = try ProjectValidator.validate(data: Data(contentsOf: file))
+            summary = "1 projects, \(count) targets"
         default:
             let plan = try evaluation.plan(
                 entryModule(input, entry: entry.entry), outputDirectory: output.url)
-            count = plan.targetCount
-            projectCount = plan.projectCount
+            summary = "\(plan.projectCount) projects, \(plan.targetCount) generated targets"
         }
-        print("Valid: \(input.path) (\(projectCount) projects, \(count) targets)")
+        print("Valid: \(input.path) (\(summary))")
     }
 }
 

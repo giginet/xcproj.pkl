@@ -1,0 +1,9 @@
+module xcproj.WorkspaceModel
+import "ProjectModel.pkl" as Project
+
+/// A read-only workspace member. Relative paths are anchored at workspaceDir.
+open class ExistingProject {
+  path: String(!isEmpty && (endsWith(".xcodeproj") || endsWith(".xcodeproj/")))
+}
+
+typealias WorkspaceProject = *Project | ExistingProject
