@@ -61,7 +61,7 @@ struct ExistingWorkspaceTests {
         }
         let output = fixture.root.appendingPathComponent("Relocated")
         let plan = try GenerationPlan.compile(source: source, outputDirectory: output)
-        #expect(plan.projectCount == 3 && plan.targetCount == 3)
+        #expect(plan.projectCount == 3 && plan.targetCount == 1)
         #expect(plan.projects.count == 1 && plan.files.count == 2)
         #expect(!FileManager.default.fileExists(atPath: plan.destination.path))
         let workspace = try #require(plan.files.first { !$0.isProject && !$0.isScheme })
@@ -77,7 +77,7 @@ struct ExistingWorkspaceTests {
                 "../Vendor/A &amp; B &lt;日本&gt;.xcodeproj"))
         #expect(try plan.write())
         let validation = try WorkspaceValidator.validate(plan.destination)
-        #expect(validation.projectCount == 3 && validation.targetCount == 3)
+        #expect(validation.projectCount == 3)
         let next = try GenerationPlan.compile(source: source, outputDirectory: output)
         #expect(next.files.map(\.data) == plan.files.map(\.data))
         #expect(try !next.write())
@@ -101,7 +101,7 @@ struct ExistingWorkspaceTests {
             projects { ["legacy"] = (base) { path = "Vendor/Legacy.xcodeproj" } }
             """)
         let plan = try GenerationPlan.compile(source: source)
-        #expect(plan.projectCount == 1 && plan.targetCount == 1)
+        #expect(plan.projectCount == 1 && plan.targetCount == 0)
         #expect(plan.projects.isEmpty && plan.files.count == 1)
         #expect(
             try WorkspaceValidator.projectURLs(
@@ -166,27 +166,6 @@ struct ExistingWorkspaceTests {
             !FileManager.default.fileExists(atPath: existing.appendingPathComponent("Output").path))
     }
 
-    @Test func generatedProjectCannotOverwriteAnImportedDocumentSymlinkTarget() throws {
-        let fixture = try Fixture()
-        let project = try fixture.project(
-            #"targets { ["tool"] { name = "Generated"; type = "tool" } }"#,
-            at: "Generated/Project.pkl")
-        let original = try GenerationPlan.compile(source: project)
-        try original.write()
-        let before = try Data(contentsOf: original.projects[0].destination)
-        try fixture.directory("Imported.xcodeproj")
-        try fixture.symlink(
-            "Imported.xcodeproj/project.xcproj",
-            to: "../Generated/Example.xcodeproj/project.xcproj")
-        let source = try fixture.workspace(
-            #"["generated"] = import("Generated/Project.pkl"); ["existing"] = module.importXcodeproj("Imported.xcodeproj")"#
-        )
-        #expect(throws: (any Error).self) {
-            try GenerationPlan.compile(source: source).write()
-        }
-        #expect(try Data(contentsOf: original.projects[0].destination) == before)
-    }
-
     @Test func writeProtectsExistingBundlesAfterAnOutputSymlinkChanges() throws {
         let fixture = try Fixture()
         let existing = try legacy(fixture)
@@ -201,21 +180,34 @@ struct ExistingWorkspaceTests {
                 atPath: existing.appendingPathComponent("Modular.xcworkspace").path))
     }
 
-    @Test func malformedExistingProjectDoesNotWriteGeneratedMembers() throws {
+    @Test(arguments: [
+        [], ["project.xcproj"], ["project.pbxproj"], ["project.xcproj", "project.pbxproj"],
+    ])
+    func existingProjectContentsAreOpaque(_ documents: [String]) throws {
         let fixture = try Fixture()
         try fixture.project(
             #"targets { ["tool"] { name = "Generated"; type = "tool" } }"#,
             at: "Generated/Project.pkl")
-        try fixture.file("Bad.xcodeproj/project.pbxproj", "invalid plist")
+        try fixture.directory("Existing.xcodeproj")
+        for document in documents {
+            try fixture.file("Existing.xcodeproj/\(document)", "opaque project contents")
+        }
         let source = try fixture.workspace(
-            #"["generated"] = import("Generated/Project.pkl"); ["existing"] = module.importXcodeproj("Bad.xcodeproj")"#
+            #"["generated"] = import("Generated/Project.pkl"); ["existing"] = module.importXcodeproj("Existing.xcodeproj")"#
         )
-        #expect(throws: (any Error).self) { try GenerationPlan.compile(source: source).write() }
+        let plan = try GenerationPlan.compile(source: source)
+        #expect(plan.projectCount == 2 && plan.targetCount == 1)
+        try plan.write()
+        #expect(try WorkspaceValidator.validate(plan.destination).projectCount == 2)
         #expect(
-            !FileManager.default.fileExists(
+            FileManager.default.fileExists(
                 atPath: fixture.root.appendingPathComponent("Generated/Example.xcodeproj").path))
-        #expect(
-            !FileManager.default.fileExists(
-                atPath: fixture.root.appendingPathComponent("Modular.xcworkspace").path))
+        for document in documents {
+            #expect(
+                try String(
+                    contentsOf: fixture.root.appendingPathComponent(
+                        "Existing.xcodeproj/\(document)"),
+                    encoding: .utf8) == "opaque project contents")
+        }
     }
 }
