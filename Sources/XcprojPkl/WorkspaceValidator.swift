@@ -2,11 +2,9 @@ import Foundation
 
 public struct WorkspaceValidation: Sendable {
     public let projectCount: Int
-    public let targetCount: Int
 }
 
-/// Validates workspace membership and each referenced JSON or legacy project.
-/// Project-to-project dependency resolution and scheme validation are not performed.
+/// Validates workspace XML and referenced directories without reading project contents.
 public enum WorkspaceValidator {
     public static func validate(_ workspace: URL) throws -> WorkspaceValidation {
         guard workspace.pathExtension == "xcworkspace" else {
@@ -15,17 +13,15 @@ public enum WorkspaceValidator {
         let data = try Data(
             contentsOf: workspace.appendingPathComponent("contents.xcworkspacedata"))
         let projects = try projectURLs(data: data, workspace: workspace)
-        var targetCount = 0
-        var diagnostics: [String] = []
         for project in projects {
-            do {
-                targetCount += try ProjectBundleValidator.validate(project)
-            } catch {
-                diagnostics.append("\(project.path): \(error.localizedDescription)")
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: project.path, isDirectory: &isDirectory),
+                isDirectory.boolValue
+            else {
+                throw ProjectError("Expected an existing .xcodeproj directory: \(project.path)")
             }
         }
-        if !diagnostics.isEmpty { throw ProjectError(diagnostics) }
-        return WorkspaceValidation(projectCount: projects.count, targetCount: targetCount)
+        return WorkspaceValidation(projectCount: projects.count)
     }
 
     static func projectURLs(data: Data, workspace: URL) throws -> [URL] {

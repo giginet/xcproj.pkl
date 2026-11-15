@@ -33,6 +33,46 @@ private func executable(_ path: URL) throws {
 }
 
 struct CLITests {
+    @Test func existingWorkspaceValidationDoesNotInspectProjectContents() throws {
+        let f = try Fixture()
+        let members = ["Empty", "JSON", "Legacy", "Both", "Directory"]
+        for member in members { try f.directory("\(member).xcodeproj") }
+        try f.file("JSON.xcodeproj/project.xcproj", "not JSON")
+        try f.file("Legacy.xcodeproj/project.pbxproj", "not a property list")
+        try f.file("Both.xcodeproj/project.xcproj", "not JSON")
+        try f.file("Both.xcodeproj/project.pbxproj", "not a property list")
+        try f.directory("Directory.xcodeproj/project.xcproj")
+        let references = members.map { #"<FileRef location="group:\#($0).xcodeproj"/>"# }.joined()
+        let workspace = try f.file(
+            "Existing.xcworkspace/contents.xcworkspacedata",
+            #"<Workspace version="1.0">\#(references)</Workspace>"#
+        ).deletingLastPathComponent()
+        #expect(try WorkspaceValidator.validate(workspace).projectCount == 5)
+        let result = try cli(
+            ["validate", workspace.path], fixture: f, environment: ["PKL_EXEC": "/missing/pkl"])
+        #expect(result.status == 0, "\(result.text)")
+        #expect(result.text.contains("(5 projects)") && !result.text.contains("targets"))
+        try FileManager.default.removeItem(at: f.root.appendingPathComponent("Empty.xcodeproj"))
+        #expect(throws: (any Error).self) { try WorkspaceValidator.validate(workspace) }
+        try f.file("Empty.xcodeproj", "not a directory")
+        #expect(throws: (any Error).self) { try WorkspaceValidator.validate(workspace) }
+    }
+
+    @Test func directProjectValidationStillRequiresValidJSONWithoutPkl() throws {
+        let f = try Fixture()
+        let file = try f.file("Invalid.xcodeproj/project.xcproj", "not JSON")
+        for path in [file, file.deletingLastPathComponent()] {
+            let result = try cli(
+                ["validate", path.path], fixture: f, environment: ["PKL_EXEC": "/missing/pkl"])
+            #expect(result.status != 0 && !result.text.contains("/missing/pkl"))
+        }
+        try f.file("Legacy.xcodeproj/project.pbxproj", "opaque legacy project")
+        let legacy = try cli(
+            ["validate", f.root.appendingPathComponent("Legacy.xcodeproj").path], fixture: f,
+            environment: ["PKL_EXEC": "/missing/pkl"])
+        #expect(legacy.status != 0 && legacy.text.contains("JSON"), "\(legacy.text)")
+    }
+
     @Test func initIsOfflineAndRefusesOverwriteBeforeCreatingFiles() throws {
         let f = try Fixture()
         let created = try cli(
@@ -169,7 +209,7 @@ struct NativeCLITests {
         let arguments = [root.path, "--output-dir", relativeOutput]
         let validated = try cli(["validate"] + arguments, fixture: f, environment: environment)
         try #require(validated.status == 0, "\(validated.text)")
-        #expect(validated.text.contains("1 projects, 2 targets"))
+        #expect(validated.text.contains("1 projects, 2 generated targets"))
         #expect(
             FileManager.default.fileExists(
                 atPath: root.appendingPathComponent("PklProject.deps.json").path))
@@ -181,7 +221,7 @@ struct NativeCLITests {
         let generated = try cli(["generate"] + arguments, fixture: f, environment: environment)
         try #require(generated.status == 0, "\(generated.text)")
         if type == "workspace" {
-            #expect(try WorkspaceValidator.validate(destination).targetCount == 2)
+            #expect(try WorkspaceValidator.validate(destination).projectCount == 1)
         } else {
             #expect(
                 try ProjectValidator.validate(

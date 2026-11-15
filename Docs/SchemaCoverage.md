@@ -186,7 +186,9 @@ Consequently, Pkl scheme authoring and XML generation are generator features, no
 
 `Workspace.projects` accepts both Pkl `Project` modules and `ExistingProject` references returned by `importXcodeproj(path)`. An existing reference adds a workspace XML member without importing its targets into the Pkl authoring model. Paths are resolved relative to `workspaceDir` or may be absolute, canonicalized for duplicate/collision checks, and rebased relative to the generated workspace. The existing bundle and its schemes remain unchanged. A workspace can consist entirely of existing references.
 
-Both JSON `project.xcproj` and legacy `project.pbxproj` bundles are supported. JSON members use the same schema and reference validators as generated documents. Legacy members are parsed as property lists and checked for a valid project root and target objects. This structural check is not a complete validator for the legacy format or Xcode build semantics. The importer does not convert between formats. Generated schemes reference generated targets only; imported projects retain their existing shared schemes.
+Imported members are opaque `.xcodeproj` directories: the importer checks their existence and path collisions without requiring or parsing `project.xcproj`, `project.pbxproj`, or other contents. It does not convert between formats. Generated schemes reference generated targets only; imported projects retain their existing shared schemes. Generation plans count all project members and only generated targets.
+
+Direct workspace validation checks XML membership and referenced project directories, with a project count only. Direct JSON project validation remains available by passing an `.xcodeproj` bundle or `project.xcproj` file; direct legacy project validation is unsupported.
 
 ## Validation boundary
 

@@ -225,7 +225,7 @@ struct NativeWorkspaceTests {
         let next = try GenerationPlan.compile(source: entry)
         #expect(plan.files.map(\.data) == next.files.map(\.data))
         #expect(try !next.write())
-        #expect(try WorkspaceValidator.validate(plan.destination).targetCount == 200)
+        #expect(try WorkspaceValidator.validate(plan.destination).projectCount == 100)
     }
 
     @Test func bundledRendererWorksAfterExecutableAndResourcesMove() throws {

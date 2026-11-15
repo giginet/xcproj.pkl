@@ -123,7 +123,7 @@ struct PklPackageTests {
         #expect(plan.projectCount == 1 && plan.targetCount == 1)
         #expect(plan.projects[0].data == standalone.projects[0].data)
         try plan.write()
-        #expect(try WorkspaceValidator.validate(plan.destination).targetCount == 1)
+        #expect(try WorkspaceValidator.validate(plan.destination).projectCount == 1)
     }
 
     @Test func releaseAssetsUseTheTagVersionAndMatchTheirMetadata() throws {

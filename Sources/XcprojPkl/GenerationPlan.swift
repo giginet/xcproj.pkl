@@ -12,7 +12,9 @@ public struct GenerationPlan: Sendable {
     }
     public let files: [File]
     public let destination: URL
+    /// Total workspace members, including existing project references.
     public let projectCount: Int
+    /// Targets generated from Pkl; existing project contents are not read.
     public let targetCount: Int
     public var projects: [File] { files.filter(\.isProject) }
     private let existingProjects: [URL]
@@ -123,9 +125,6 @@ public struct GenerationPlan: Sendable {
             return path.url
         }
         try validateExistingProjectPaths(existingProjects, files: files)
-        for project in existingProjects {
-            targetCount += try ProjectBundleValidator.validate(project)
-        }
         // Validate XML against this plan, before the referenced projects exist on disk.
         if let workspace = files.first(where: { !$0.isProject && !$0.isScheme }) {
             let references = try WorkspaceValidator.projectURLs(
@@ -184,19 +183,11 @@ public struct GenerationPlan: Sendable {
         guard Set(bundles).count == bundles.count else {
             throw ProjectError("Duplicate existing project paths")
         }
-        // A project document can itself be a symlink outside its bundle.
-        let inputs =
-            bundles
-            + projects.flatMap { project in
-                ["project.xcproj", "project.pbxproj"].map {
-                    canonicalFileURL(project.appendingPathComponent($0)).path
-                }
-            }
         let outputs = Set(
             files.flatMap {
                 [canonicalFileURL($0.bundle).path, canonicalFileURL($0.destination).path]
             })
-        for input in inputs {
+        for input in bundles {
             for output in outputs
             where input == output || input.hasPrefix(output + "/") || output.hasPrefix(input + "/")
             {
