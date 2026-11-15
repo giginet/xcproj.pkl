@@ -2,9 +2,6 @@
 
 [![Build and test xcprojgen](https://img.shields.io/github/actions/workflow/status/giginet/xcproj.pkl/xcprojgen.yml?branch=main&style=flat-square&logo=github&label=xcprojgen)](https://github.com/giginet/xcproj.pkl/actions/workflows/xcprojgen.yml)
 [![Pkl tests](https://img.shields.io/github/actions/workflow/status/giginet/xcproj.pkl/pkl-tests.yml?branch=main&style=flat-square&logo=github&label=Pkl%20tests)](https://github.com/giginet/xcproj.pkl/actions/workflows/pkl-tests.yml)
-[![Examples](https://img.shields.io/github/actions/workflow/status/giginet/xcproj.pkl/examples.yml?branch=main&style=flat-square&logo=github&label=Examples)](https://github.com/giginet/xcproj.pkl/actions/workflows/examples.yml)
-[![swift-format](https://img.shields.io/github/actions/workflow/status/giginet/xcproj.pkl/swift-format.yml?branch=main&style=flat-square&logo=github&label=swift-format)](https://github.com/giginet/xcproj.pkl/actions/workflows/swift-format.yml)
-
 [![Swift 6.1+](https://img.shields.io/badge/Swift-6.1%2B-FA7343?logo=swift&style=flat-square)](./Package.swift)
 [![Xcode 27.2+](https://img.shields.io/badge/Xcode-27.2%2B-147EFB?logo=xcode&style=flat-square)](https://developer.apple.com/xcode/)
 [![Pkl 0.33+](https://img.shields.io/badge/Pkl-0.33%2B-blue?style=flat-square)](https://pkl-lang.org/)
@@ -99,7 +96,7 @@ xcprojgen generate MyWorkspace --entry Projects/Core/Project.pkl
 
 ## Advanced Project Examples
 
-## Target Template Inheritance
+### Target Template Inheritance
 
 Pkl's language features let you describe complex Xcode projects concisely. For example, object amendments let you create multiple targets from a shared template.
 
@@ -146,7 +143,7 @@ targets {
 
 `extends` defines class inheritance, while `(framework) { ... }` amends an object. In this example, the targets inherit the shared settings and reference `Sources/DemoCore` and `Sources/DemoNetworking`, respectively.
 
-## Generating a Workspace
+### Generating a Workspace
 
 You can also concisely define a `*.xcworkspace` containing multiple Xcode projects. In addition to importing other Pkl files, you can include existing Xcode projects.
 
@@ -177,6 +174,6 @@ open Examples/MixedWorkspace/Mixed.xcworkspace
 - [Pkl CLI Manual](https://pkl-lang.org/main/current/pkl-cli/index.html)
 - [Updating Your Xcode Project Configuration File Format (Apple Developer)](https://developer.apple.com/documentation/xcode/updating-your-xcode-project-configuration-file-format)
 
-### License
+## License
 
 xcproj.pkl is licensed under the [Apache License, Version 2.0](./LICENSE).
