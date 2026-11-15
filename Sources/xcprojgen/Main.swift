@@ -67,39 +67,24 @@ struct OutputOptions: ParsableArguments {
     var url: URL? { outputDir.map { URL(fileURLWithPath: $0).standardizedFileURL } }
 }
 
-struct EntryOptions: ParsableArguments {
-    @Option(help: "Entry .pkl file relative to <dir> (default: Main.pkl).")
-    var entry: String?
-}
-
 /// The entry's Pkl type determines whether a project or workspace is generated.
-func entryModule(_ path: URL, entry: String?) throws -> URL {
+func entryModule(_ path: URL) throws -> URL {
     var isDirectory: ObjCBool = false
     guard FileManager.default.fileExists(atPath: path.path, isDirectory: &isDirectory) else {
         throw ValidationError(
             "Input does not exist: \(path.path). Use 'xcprojgen init <dir>' to create a project.")
     }
     if isDirectory.boolValue {
-        let name = entry ?? "Main.pkl"
-        guard !name.isEmpty, !NSString(string: name).isAbsolutePath else {
-            throw ValidationError("--entry must be a relative .pkl file path")
-        }
-        let module = path.appendingPathComponent(name).standardizedFileURL
-        guard module.pathExtension == "pkl" else {
-            throw ValidationError("Entry must be a .pkl file: \(name)")
-        }
+        let module = path.appendingPathComponent("Main.pkl")
         var entryIsDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: module.path, isDirectory: &entryIsDirectory),
             !entryIsDirectory.boolValue
         else {
             throw ValidationError(
-                "Entry module not found: \(module.path). Use --entry <file.pkl> to select another entry."
+                "Entry module not found: \(module.path). Pass a .pkl file path to select another entry."
             )
         }
         return module
-    }
-    guard entry == nil else {
-        throw ValidationError("--entry requires a directory input")
     }
     guard path.pathExtension == "pkl" else {
         throw ValidationError("Expected a project directory containing Main.pkl or a .pkl module")
@@ -129,15 +114,16 @@ struct Initialize: ParsableCommand {
 
 struct Generate: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Resolve dependencies and generate the project or workspace defined by Main.pkl.")
-    @Argument(help: "Project directory containing Main.pkl, or a .pkl module.") var dir: String
-    @OptionGroup var entry: EntryOptions
+        abstract:
+            "Resolve dependencies and generate the project or workspace defined by a Pkl entry.")
+    @Argument(
+        help: "Directory containing Main.pkl, or a .pkl file. Defaults to the current directory.")
+    var path: String = "."
     @OptionGroup var output: OutputOptions
     @OptionGroup var evaluation: EvaluationOptions
 
     mutating func run() throws {
-        let source = try entryModule(
-            URL(fileURLWithPath: dir).standardizedFileURL, entry: entry.entry)
+        let source = try entryModule(URL(fileURLWithPath: path).standardizedFileURL)
         let generated = try evaluation.plan(source, outputDirectory: output.url)
         let changed = try generated.write()
         print(
@@ -151,14 +137,15 @@ struct Validate: ParsableCommand {
         abstract:
             "Resolve dependencies and validate a Pkl project without writing generated artifacts."
     )
-    @Argument(help: "Project directory containing Main.pkl, or a .pkl module.") var dir: String
-    @OptionGroup var entry: EntryOptions
+    @Argument(
+        help: "Directory containing Main.pkl, or a .pkl file. Defaults to the current directory.")
+    var path: String = "."
     @OptionGroup var output: OutputOptions
     @OptionGroup var evaluation: EvaluationOptions
 
     mutating func run() throws {
-        let input = URL(fileURLWithPath: dir).standardizedFileURL
-        let source = try entryModule(input, entry: entry.entry)
+        let input = URL(fileURLWithPath: path).standardizedFileURL
+        let source = try entryModule(input)
         let plan = try evaluation.plan(source, outputDirectory: output.url)
         print(
             "Valid: \(input.path) (\(plan.projectCount) projects, \(plan.targetCount) generated targets)"

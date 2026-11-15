@@ -9,7 +9,8 @@ private struct CLIResult {
 }
 
 private func cli(
-    _ arguments: [String], fixture: Fixture, environment: [String: String] = [:]
+    _ arguments: [String], fixture: Fixture, environment: [String: String] = [:],
+    workingDirectory: URL? = nil
 ) throws -> CLIResult {
     let log = try fixture.file("cli-\(UUID()).log")
     let handle = try FileHandle(forWritingTo: log)
@@ -18,7 +19,7 @@ private func cli(
     process.executableURL = repository.appendingPathComponent(".build/debug/xcprojgen")
         .resolvingSymlinksInPath()
     process.arguments = arguments
-    process.currentDirectoryURL = fixture.root
+    process.currentDirectoryURL = workingDirectory ?? fixture.root
     process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
     process.standardOutput = handle
     process.standardError = handle
@@ -126,12 +127,15 @@ struct CLITests {
         let reserved = try cli(
             ["generate", "Empty", "--property", "xcproj.internal.request=bad"], fixture: f)
         #expect(reserved.status != 0 && reserved.text.contains("reserved"))
-        let absolute = try cli(
-            ["generate", "Empty", "--entry", "/tmp/Project.pkl"], fixture: f)
-        #expect(absolute.status != 0 && absolute.text.contains("relative .pkl"))
-        let doubleEntry = try cli(
-            ["generate", "Empty/Workspace.pkl", "--entry", "Main.pkl"], fixture: f)
-        #expect(doubleEntry.status != 0 && doubleEntry.text.contains("requires a directory"))
+        for command in ["generate", "validate"] {
+            let missingDefault = try cli([command], fixture: f)
+            #expect(missingDefault.status != 0 && missingDefault.text.contains("Main.pkl"))
+            let removedOption = try cli(
+                [command, "Empty", "--entry", "Workspace.pkl"], fixture: f)
+            #expect(
+                removedOption.status != 0 && removedOption.text.contains("Unknown option '--entry'")
+            )
+        }
         let invalidType = try cli(["init", "Bad", "--type", "unknown"], fixture: f)
         #expect(invalidType.status != 0)
         #expect(!FileManager.default.fileExists(atPath: f.root.appendingPathComponent("Bad").path))
@@ -227,12 +231,14 @@ struct NativeCLITests {
         try #require(generated.status == 0, "\(generated.text)")
         #expect(FileManager.default.fileExists(atPath: destination.path))
         #expect(FileManager.default.fileExists(atPath: project.path))
-        let unchanged = try cli(["generate"] + arguments, fixture: f, environment: environment)
+        let unchanged = try cli(
+            ["generate", "--output-dir", destination.deletingLastPathComponent().path],
+            fixture: f, environment: environment, workingDirectory: root)
         #expect(unchanged.status == 0 && unchanged.text.contains("Unchanged"))
         if type == "workspace" {
             let standalone = try cli(
                 [
-                    "generate", root.path, "--entry", "Projects/Core/Project.pkl",
+                    "generate", "My Workspace/Projects/Core/Project.pkl",
                     "--output-dir", "Standalone Outputs",
                 ], fixture: f, environment: environment)
             #expect(standalone.status == 0, "\(standalone.text)")

@@ -81,6 +81,9 @@ xcprojgen validate MyWorkspace
 xcprojgen generate MyWorkspace
 open MyWorkspace/Workspace.xcworkspace
 
+# Or generate from Main.pkl in the current directory
+(cd MyWorkspace && xcprojgen generate)
+
 # Generate a single project
 xcprojgen generate MyLibrary
 open MyLibrary/Core.xcodeproj
@@ -88,11 +91,19 @@ open MyLibrary/Core.xcodeproj
 # Specify the workspace output directory
 xcprojgen generate MyWorkspace --output-dir /tmp/generated
 
-# Generate from an entry point other than Main.pkl
-xcprojgen generate MyWorkspace --entry Projects/Core/Project.pkl
+# Generate from a specific Pkl file
+xcprojgen generate MyWorkspace/Projects/Core/Project.pkl
 ```
 
-`validate` accepts a Pkl project directory containing `Main.pkl`, or a `.pkl` module. Use `--entry` to select another module within the directory. It resolves dependencies and checks the generation plan without writing Xcode projects or workspaces.
+`generate [path]` selects the entry point from its optional argument:
+
+- No argument: `Main.pkl` in the current working directory.
+- Directory: `Main.pkl` inside that directory.
+- `.pkl` file: that file itself.
+
+Relative paths are resolved from the current working directory. To use another entry point, pass its `.pkl` file path directly.
+
+`validate [path]` uses the same input rules. It resolves dependencies and checks the generation plan without writing Xcode projects or workspaces.
 
 `generate` formats each generated `project.xcproj` with `xcrun xcprojformatter` before saving it. Repeated generation leaves unchanged files untouched. Existing projects imported into a workspace are not formatted. Xcode tools use the installation selected by `xcode-select` or `DEVELOPER_DIR`; `doctor` checks that both `xcrun xcodeproj` and `xcrun xcprojformatter` can run. If either tool is unavailable, install Xcode 27.2 or later and select that installation.
 

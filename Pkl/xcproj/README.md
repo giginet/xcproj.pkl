@@ -34,7 +34,7 @@ targets {
 }
 ```
 
-Use `import "@xcproj/Project.pkl" as X` to define reusable classes extending `X.Target` and reusable `X.Settings` objects. For a workspace, Main.pkl can amend `@xcproj/Workspace.pkl` and import local Project modules. The CLI defaults to `<dir>/Main.pkl`; `--entry` selects another module relative to `<dir>`. Run the resulting local entry through the matching Swift CLI; evaluating the public schemas produces an intermediate Snapshot, not the final Xcode project.
+Use `import "@xcproj/Project.pkl" as X` to define reusable classes extending `X.Target` and reusable `X.Settings` objects. For a workspace, Main.pkl can amend `@xcproj/Workspace.pkl` and import local Project modules. With no argument, `xcprojgen generate` uses `Main.pkl` in the current working directory. A directory argument selects its `Main.pkl`; a `.pkl` file argument selects that file directly. Run the resulting local entry through the matching Swift CLI; evaluating the public schemas produces an intermediate Snapshot, not the final Xcode project.
 
 To include an existing `.xcodeproj` bundle, use the workspace's `importXcodeproj(path)` function:
 
@@ -53,7 +53,7 @@ The return type is `ExistingProject`; `projects` accepts either it or a `Project
 
 Imported paths must identify existing `.xcodeproj` directories. Their contents are opaque: neither `project.xcproj` nor `project.pbxproj` is required or parsed. Imported targets are not exposed as Pkl `Target` objects and cannot be selected by generated schemes; existing shared schemes remain available in Xcode. Importing a project does not create target dependencies. CLI project counts include imported members; target counts include generated targets only.
 
-`xcprojgen validate` accepts a Pkl project directory containing `Main.pkl`, or a `.pkl` module. It resolves dependencies and checks the generation plan without writing Xcode projects or workspaces. Use `--entry` to select another module within the directory.
+`xcprojgen validate [path]` uses the same input rules as `generate`: no argument selects `Main.pkl` in the current working directory, a directory selects its `Main.pkl`, and a `.pkl` file is used directly. It resolves dependencies and checks the generation plan without writing Xcode projects or workspaces.
 
 Targets support `application`, `framework`, `tool`, `bundle`, `bundle.unit-test`, and `app-extension` product types. To embed an extension in an application, add a dependency with `link = false` and `embed = true`. Framework dependencies may be linked and embedded independently. An optional `infoPlist` names an existing file relative to `projectDir`; the renderer sets `INFOPLIST_FILE` relative to the generated project and disables automatic plist generation. The repository's `Examples/iOS` demonstrates inherited Swift 6 framework targets, an application, and a notification service extension.
 
@@ -63,7 +63,7 @@ Use `packages` as a mapping of aliases to `LocalSwiftPackage` or `RemoteSwiftPac
 
 `preBuildScripts` / `postBuildScripts` wrap the default phases; an explicit `buildPhases` listing replaces those default phases in the given order. Project and Workspace `schemes` mappings produce shared `.xcscheme` XML files, supporting Build, Run, Test, Profile, Analyze and Archive actions, arguments, environment variables and pre/post actions. A project scheme references target keys; a workspace scheme references `project-key/target-key`. Schemes are separate artifacts, outside the upstream JSON schema. See the repository's `Docs/SchemaCoverage.md` for the field-by-field mapping and `Examples/Advanced` for a runnable package/script/scheme example.
 
-`xcprojgen generate <dir> --output-dir <directory>` writes `<directory>/<name>.xcodeproj` or `<directory>/<name>.xcworkspace`, according to the selected entry's Pkl type and `name`. Generated workspace members retain their own project output directories; existing members retain their original locations. Without `--output-dir`, `projectDir` or `workspaceDir` determines the output directory.
+`xcprojgen generate [path] --output-dir <directory>` writes `<directory>/<name>.xcodeproj` or `<directory>/<name>.xcworkspace`, according to the selected entry's Pkl type and `name`. Generated workspace members retain their own project output directories; existing members retain their original locations. Without `--output-dir`, `projectDir` or `workspaceDir` determines the output directory.
 
 For checkout-based development, a consumer may use a local dependency instead:
 
