@@ -107,6 +107,28 @@ Relative paths are resolved from the current working directory. To use another e
 
 `generate` formats each generated `project.xcproj` with `xcrun xcprojformatter` before saving it. Repeated generation leaves unchanged files untouched. Existing projects imported into a workspace are not formatted. Xcode tools use the installation selected by `xcode-select` or `DEVELOPER_DIR`; `doctor` checks that both `xcrun xcodeproj` and `xcrun xcprojformatter` can run. If either tool is unavailable, install Xcode 27.2 or later and select that installation.
 
+### Agent skill
+
+Export the bundled [Agent Skills](https://agentskills.io/specification) instructions
+into your agent's skills directory:
+
+```sh
+xcprojgen skills export .agents/skills
+```
+
+The output directory is the parent of the skill folder. This command writes
+`.agents/skills/xcprojgen/SKILL.md` and its `references/` documents, covering Pkl
+target inheritance, shared settings, dependencies, and Project/Workspace creation
+with `xcprojgen`. Choose the parent directory your agent uses for skill discovery.
+
+Export works offline without Pkl or Xcode. Run it again after upgrading the CLI:
+it compares file contents, overwrites changed bundled files, restores missing
+files, and prints `Updated agent skill: ...` when an existing skill changes.
+Identical files keep their modification times and produce `Unchanged agent
+skill: ...`; the first export prints `Exported agent skill: ...`. Additional
+files and other skills in the output directory are preserved. Edits to the
+bundled skill files are replaced on the next export.
+
 ## Advanced Project Examples
 
 ### Target Template Inheritance

@@ -22,7 +22,7 @@ let package = Package(
                 "xcproj/tests",
             ],
             sources: ["RuntimeResources.swift"],
-            resources: [.copy("xcproj/Internal")]
+            resources: [.copy("xcproj/Internal"), .copy("Skills")]
         ),
         .target(
             name: "XCProjGenKit",
