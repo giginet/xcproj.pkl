@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: xcode-27
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
@@ -34,3 +34,11 @@ jobs:
         run: swift build --product xcprojgen
       - name: Run all Swift tests, including those that evaluate Pkl
         run: swift test
+      - name: Check CLI release packaging and formula generation without publishing
+        run: |
+          python3 -m unittest discover -s Scripts/tests
+          bash Scripts/prepare-cli-release.sh 1.2.3 --output-path "$RUNNER_TEMP/cli-release"
+          python3 Scripts/update-homebrew-formula.py 1.2.3 \
+            "$RUNNER_TEMP/cli-release/xcprojgen-1.2.3-macos-universal.tar.gz" \
+            --output "$RUNNER_TEMP/xcprojgen.rb"
+          ruby -c "$RUNNER_TEMP/xcprojgen.rb"
