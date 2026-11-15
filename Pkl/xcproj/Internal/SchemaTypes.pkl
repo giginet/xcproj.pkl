@@ -1,6 +1,6 @@
 /// Typed authoring counterparts of apple/xcode-project-format 0.1.0.
 /// Low-level paths and references use Xcode's own syntax; they are not source globs.
-open module xcproj.SchemaTypes
+open module xcproj.Internal.SchemaTypes
 
 typealias TargetKind = "native" | "aggregate" | "external-build-system"
 typealias Platform = "iOS" | "macOS" | "tvOS" | "watchOS" | "visionOS" | "driverKit"
@@ -124,12 +124,12 @@ open class BuildFileProperties extends BuildFileAttributes {
 }
 open class ProjectBuildFile extends BuildFileProperties {
   id: ObjectID?
-  /// Target/kind[/phase-name], id:<object-id>, or explicit name components.
+  /// `Target/kind[/phase-name]`, `id:<object-id>`, or explicit name components.
   buildPhase: GroupTreeReference
 }
 open class TargetBuildFile extends BuildFileProperties {
   id: ObjectID?
-  /// Kind[/phase-name] or id:<object-id>, relative to the containing target.
+  /// `Kind[/phase-name]` or `id:<object-id>`, relative to the containing target.
   buildPhase: GroupTreeReference = "frameworks"
 }
 

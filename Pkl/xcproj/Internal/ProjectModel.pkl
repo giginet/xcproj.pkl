@@ -1,5 +1,5 @@
 /// Base module kept independent of projection and rendering to avoid import cycles.
-open module xcproj.ProjectModel
+open module xcproj.Internal.ProjectModel
 extends "SchemaTypes.pkl"
 import "SchemeModel.pkl" as SchemeModel
 
