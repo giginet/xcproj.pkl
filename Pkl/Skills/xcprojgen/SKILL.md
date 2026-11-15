@@ -1,6 +1,6 @@
 ---
 name: xcprojgen
-description: Author xcproj Pkl configurations and use xcprojgen to create, validate, and generate Xcode projects and workspaces. Use for Main.pkl, reusable target templates, shared build settings, and multi-project workspaces managed by xcprojgen.
+description: Create and maintain Xcode projects with Pkl and xcprojgen. Use when generating .xcodeproj projects or .xcworkspace workspaces, authoring Main.pkl, defining reusable target templates, or sharing build settings across targets and projects.
 ---
 
 # xcprojgen
@@ -68,9 +68,11 @@ with `xcrun xcodebuild -list -project <name>.xcodeproj` or
 `-workspace <name>.xcworkspace`, then build the intended scheme and destination.
 An iOS Simulator build does not demonstrate device signing or runtime behavior.
 
-Read the public schema for the package version in use when a field is unfamiliar.
-The repository's [package guide](https://github.com/giginet/xcproj.pkl/blob/main/Pkl/xcproj/README.md)
+Consult the [xcproj Pkl API reference (pkldoc)](https://giginet.github.io/xcproj.pkl/)
+for public types and properties. The hosted reference tracks `main`; check the
+public schema at the matching release tag when using an older package or when
+the hosted reference is unavailable. The repository's
+[package guide](https://github.com/giginet/xcproj.pkl/blob/main/Pkl/xcproj/README.md)
 and [examples](https://github.com/giginet/xcproj.pkl/tree/main/Examples) cover
-additional features; use the matching release tag when working with an older
-package. Pkl's [language reference](https://pkl-lang.org/main/current/language-reference/index.html)
+additional features. Pkl's [language reference](https://pkl-lang.org/main/current/language-reference/index.html)
 explains the underlying amendment and inheritance semantics.
