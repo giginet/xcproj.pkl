@@ -78,17 +78,29 @@ struct CLITests {
 
     @Test func doctorExplainsMissingPklAndHonorsExecutablePrecedence() throws {
         let f = try Fixture()
-        let missing = try cli(["doctor"], fixture: f, environment: ["PKL_EXEC": "/missing/pkl"])
+        let missing = try cli(
+            ["doctor"], fixture: f,
+            environment: [
+                "PKL_EXEC": "/missing/pkl",
+                "DEVELOPER_DIR": f.root.appendingPathComponent("MissingXcode.app").path,
+            ])
         #expect(missing.status != 0)
         #expect(missing.text.contains(PklTool.installationGuide))
+        #expect(missing.text.contains("xcrun xcodeproj"))
+        #expect(missing.text.contains("xcrun xcprojformatter"))
+        #expect(missing.text.contains("Install Xcode 27.2 or later"))
+        #expect(missing.text.contains("DEVELOPER_DIR"))
         let fake = try f.file("fake-pkl", "#!/bin/sh\nprintf 'Pkl 0.33.0 (test)\\n'\n")
         try executable(fake)
         let installed = try cli(
             ["doctor", "--pkl", fake.path], fixture: f, environment: ["PKL_EXEC": "/missing/pkl"])
         #expect(installed.status == 0, "\(installed.text)")
         #expect(installed.text.contains(fake.path) && installed.text.contains("0.33.0"))
+        #expect(installed.text.contains("xcodeproj executable:"))
+        #expect(installed.text.contains("xcprojformatter executable:"))
         let fromPath = try cli(
-            ["doctor"], fixture: f, environment: ["PKL_EXEC": "fake-pkl", "PATH": f.root.path])
+            ["doctor"], fixture: f,
+            environment: ["PKL_EXEC": "fake-pkl", "PATH": "\(f.root.path):/usr/bin:/bin"])
         #expect(fromPath.status == 0, "\(fromPath.text)")
     }
 
@@ -128,6 +140,26 @@ struct CLITests {
 
 @Suite(.enabled(if: hasPkl, "Set PKL_EXEC for scaffold and CLI package integration"))
 struct NativeCLITests {
+    @Test func formatterFailurePreservesOutputAndDoesNotPreventPklValidation() throws {
+        let f = try Fixture()
+        let entry = try f.pair()
+        let workspace = try f.file("Modular.xcworkspace/contents.xcworkspacedata", "keep workspace")
+        let project = try f.file("A/Example.xcodeproj/project.xcproj", "keep project")
+        let environment = [
+            "DEVELOPER_DIR": f.root.appendingPathComponent("MissingXcode.app").path
+        ]
+        let validated = try cli(["validate", entry.path], fixture: f, environment: environment)
+        #expect(validated.status == 0, "\(validated.text)")
+        let generated = try cli(["generate", entry.path], fixture: f, environment: environment)
+        #expect(generated.status != 0 && generated.text.contains("xcrun xcprojformatter"))
+        #expect(generated.text.contains("Install Xcode 27.2 or later"))
+        #expect(try String(contentsOf: workspace, encoding: .utf8) == "keep workspace")
+        #expect(try String(contentsOf: project, encoding: .utf8) == "keep project")
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: f.root.appendingPathComponent("B/Example.xcodeproj").path))
+    }
+
     @Test(arguments: ["workspace", "project"])
     func mainEntryResolvesPackageAndGeneratesSelectedArtifact(_ type: String) throws {
         let f = try Fixture()

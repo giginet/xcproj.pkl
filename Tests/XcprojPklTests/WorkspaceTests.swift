@@ -27,6 +27,10 @@ struct NativeWorkspaceTests {
             String(decoding: xml.data, as: UTF8.self).contains("../A &amp; B/Example.xcodeproj"))
         #expect(!FileManager.default.fileExists(atPath: plan.destination.path))
         try plan.write()
+        for file in plan.projects {
+            let canonical = try XCSchema.Project(jsonRepresentation: file.data).jsonRepresentation()
+            #expect(try Data(contentsOf: file.destination) == canonical)
+        }
         #expect(
             try !GenerationPlan.compile(
                 source: entry, outputDirectory: plan.destination.deletingLastPathComponent()

@@ -161,9 +161,13 @@ public struct GenerationPlan: Sendable {
             }
             try validateOutputFile(file.destination)
         }
+        // Finish formatting before writing, then compare canonical bytes on every generation.
+        let contents = try files.map { file in
+            file.isProject ? try XcodeTool.xcprojformatter.run(input: file.data) : file.data
+        }
         var changed = false
-        for file in files {
-            if try writeIfChanged(file.data, to: file.destination) { changed = true }
+        for (file, data) in zip(files, contents) {
+            if try writeIfChanged(data, to: file.destination) { changed = true }
         }
         return changed
     }

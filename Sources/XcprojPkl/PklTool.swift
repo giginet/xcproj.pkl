@@ -91,39 +91,8 @@ public struct PklTool: Sendable {
     private func run(_ arguments: [String], workingDirectory: URL? = nil, operation: String) throws
         -> Data
     {
-        let url = try executableURL()
-        let manager = FileManager.default
-        let temporary = manager.temporaryDirectory.appendingPathComponent(
-            "xcprojgen-pkl-\(UUID().uuidString)")
-        try manager.createDirectory(at: temporary, withIntermediateDirectories: true)
-        defer { try? manager.removeItem(at: temporary) }
-        let out = temporary.appendingPathComponent("stdout")
-        let err = temporary.appendingPathComponent("stderr")
-        manager.createFile(atPath: out.path, contents: nil)
-        manager.createFile(atPath: err.path, contents: nil)
-        let output = try FileHandle(forWritingTo: out)
-        let errors = try FileHandle(forWritingTo: err)
-        defer {
-            try? output.close()
-            try? errors.close()
-        }
-        let process = Process()
-        process.executableURL = url
-        process.currentDirectoryURL = workingDirectory
-        process.arguments = arguments
-        process.standardOutput = output
-        process.standardError = errors
-        do { try process.run() } catch {
-            throw ProjectError("Could not run Pkl at \(url.path): \(error.localizedDescription)")
-        }
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            let diagnostic = String(decoding: try Data(contentsOf: err), as: UTF8.self)
-            let standardOutput = String(decoding: try Data(contentsOf: out), as: UTF8.self)
-            throw ProjectError(
-                "Pkl \(operation) failed (exit \(process.terminationStatus)):\n\(diagnostic)\(standardOutput)"
-            )
-        }
-        return try Data(contentsOf: out)
+        try runTool(
+            executable: executableURL(), arguments: arguments, workingDirectory: workingDirectory,
+            operation: "Pkl \(operation)")
     }
 }

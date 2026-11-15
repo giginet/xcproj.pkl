@@ -65,7 +65,7 @@ This project includes the `xcprojgen` CLI, which creates Pkl templates and gener
 ### Usage
 
 ```sh
-# Check the Pkl installation and version (0.33.0 or later)
+# Check Pkl (0.33.0+) and the Xcode tools xcodeproj and xcprojformatter
 xcprojgen doctor
 
 # Create a workspace scaffold (--type workspace is optional)
@@ -93,6 +93,8 @@ xcprojgen generate MyWorkspace --entry Projects/Core/Project.pkl
 ```
 
 `validate` accepts a Pkl project directory containing `Main.pkl`, or a `.pkl` module. Use `--entry` to select another module within the directory. It resolves dependencies and checks the generation plan without writing Xcode projects or workspaces.
+
+`generate` formats each generated `project.xcproj` with `xcrun xcprojformatter` before saving it. Repeated generation leaves unchanged files untouched. Existing projects imported into a workspace are not formatted. Xcode tools use the installation selected by `xcode-select` or `DEVELOPER_DIR`; `doctor` checks that both `xcrun xcodeproj` and `xcrun xcprojformatter` can run. If either tool is unavailable, install Xcode 27.2 or later and select that installation.
 
 ## Advanced Project Examples
 

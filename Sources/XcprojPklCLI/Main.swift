@@ -168,18 +168,34 @@ struct Validate: ParsableCommand {
 
 struct Doctor: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Check Pkl CLI installation and supported version.")
+        abstract: "Check Pkl CLI version and availability of Xcode project tools.")
     @OptionGroup var runtime: PklOptions
 
     mutating func run() throws {
-        let installation = try runtime.tool.installation()
-        print("Pkl executable: \(installation.executable.path)")
-        print("Pkl version: \(installation.version)")
-        print("Required: >= \(PklTool.minimumVersion)")
-        guard installation.isSupported else {
-            throw ValidationError(
-                "Unsupported Pkl version. Update Pkl: \(PklTool.installationGuide)")
+        var failed = false
+        do {
+            let installation = try runtime.tool.installation()
+            print("Pkl executable: \(installation.executable.path)")
+            print("Pkl version: \(installation.version)")
+            print("Required: >= \(PklTool.minimumVersion)")
+            guard installation.isSupported else {
+                throw ValidationError(
+                    "Unsupported Pkl version. Update Pkl: \(PklTool.installationGuide)")
+            }
+        } catch {
+            print("Pkl: \(error.localizedDescription)")
+            failed = true
         }
-        print("Pkl CLI is ready.")
+        for tool in XcodeTool.allCases {
+            do {
+                let executable = try tool.check()
+                print("\(tool.rawValue) executable: \(executable.path) (ready)")
+            } catch {
+                print("\(tool.rawValue): \(error.localizedDescription)")
+                failed = true
+            }
+        }
+        if failed { throw ExitCode.failure }
+        print("All tools are ready.")
     }
 }

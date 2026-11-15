@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import XcodeProjectFormat
 
 @testable import XcprojPkl
 
@@ -71,7 +72,9 @@ struct ExampleTests {
                 $0["build-phase"] as? String == "DemoApp/copy/Embed App Extensions"
             })
         try plan.write()
-        #expect(try Data(contentsOf: plan.projects[0].destination) == plan.projects[0].data)
+        let canonical = try XCSchema.Project(jsonRepresentation: plan.projects[0].data)
+            .jsonRepresentation()
+        #expect(try Data(contentsOf: plan.projects[0].destination) == canonical)
     }
 
     @Test(arguments: ["link", "embed", "missing-plist"])
