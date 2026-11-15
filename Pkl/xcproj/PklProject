@@ -2,12 +2,13 @@ amends "pkl:Project"
 
 package {
   name = "xcproj"
-  version = "0.1.0"
-  baseUri = "package://github.com/giginet/xcproj.pkl/releases/download/v\(version)/\(name)"
-  packageZipUrl = "https://github.com/giginet/xcproj.pkl/releases/download/v\(version)/\(name)@\(version).zip"
+  // PklProject evaluation supports env:, but not the CLI's prop: reader.
+  version = read?("env:XCPROJ_PKL_PACKAGE_VERSION") ?? "0.1.0"
+  baseUri = "package://github.com/giginet/xcproj.pkl/releases/download/\(version)/\(name)"
+  packageZipUrl = "https://github.com/giginet/xcproj.pkl/releases/download/\(version)/package.zip"
   description = "Typed Pkl schemas for generating Xcode JSON projects and workspaces."
   sourceCode = "https://github.com/giginet/xcproj.pkl"
-  sourceCodeUrlScheme = "\(sourceCode)/blob/v\(version)/Pkl/xcproj%{path}#L%{line}-L%{endLine}"
+  sourceCodeUrlScheme = "\(sourceCode)/blob/\(version)/Pkl/xcproj%{path}#L%{line}-L%{endLine}"
   apiTests { "tests/ApiTests.pkl" }
   exclude { "tests/**" }
 }

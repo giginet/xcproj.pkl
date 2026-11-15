@@ -1,0 +1,35 @@
+name: Publish Pkl package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pkl-release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-pkl
+        with:
+          version: '0.33.0'
+      - name: Package the tagged version and verify artifacts
+        run: bash Scripts/prepare-pkl-release.sh "$RELEASE_TAG" --output-path "$RUNNER_TEMP/pkl-release"
+      - name: Attach the package, metadata, and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/pkl-release/"* --repo "$GITHUB_REPOSITORY"

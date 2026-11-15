@@ -9,12 +9,13 @@ package_options=(project package)
 
 usage() {
   cat <<'USAGE'
-Usage: Scripts/package-pkl.sh [--pkl PATH] [-o DIRECTORY] [pkl project package options]
+Usage: Scripts/package-pkl.sh [--pkl PATH] [--version X.Y.Z] [-o DIRECTORY] [pkl project package options]
 
 Build the xcproj Pkl package, including metadata and SHA-256 sidecars.
 The package version and download URLs are defined in Pkl/xcproj/PklProject.
 
   --pkl PATH                Pkl executable (default: PKL_EXEC or PATH)
+  --version X.Y.Z           Override the package version for this invocation
   -o, --output-path DIR     Output directory; supports %{name} and %{version}
   -h, --help                Show this help
 
@@ -30,13 +31,20 @@ USAGE
 
 while (($#)); do
   case "$1" in
-    --pkl|-o|--output-path)
+    --pkl|--version|-o|--output-path)
       if (($# < 2)); then
         printf 'Missing value for %s\n' "$1" >&2
         exit 2
       fi
       case "$1" in
         --pkl) pkl_exec="$2" ;;
+        --version)
+          if [[ ! "$2" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            printf 'Invalid package version: %s (expected X.Y.Z without leading zeroes)\n' "$2" >&2
+            exit 2
+          fi
+          export XCPROJ_PKL_PACKAGE_VERSION="$2"
+          ;;
         *) output_path="$2" ;;
       esac
       shift 2

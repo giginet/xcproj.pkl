@@ -43,7 +43,8 @@ struct CLITests {
             contentsOf: root.appendingPathComponent("PklProject"), encoding: .utf8)
         #expect(
             manifest.contains(
-                "package://github.com/giginet/xcproj.pkl/releases/download/v0.1.0/xcproj@0.1.0"))
+                "package://github.com/giginet/xcproj.pkl/releases/download/0.1.0/xcproj@0.1.0"
+            ))
         #expect(
             !FileManager.default.fileExists(
                 atPath: root.appendingPathComponent("PklProject.deps.json").path))

@@ -47,6 +47,32 @@ xcrun xcodebuild -workspace /tmp/xcprojgen-mixed/Mixed.xcworkspace -scheme Hello
 
 `importXcodeproj` also accepts absolute paths. Relative paths use `workspaceDir`; `--output-dir` rebases the workspace reference without relocating the existing project. The importer checks that the `.xcodeproj` directory exists without inspecting its contents. For an existing-only workspace, omit the `tool` entry and generated `Hello` scheme. Existing target definitions are not exposed as Pkl objects, so generated schemes cannot select those targets. Pkl validation and generation report two projects and one generated target for this example; direct workspace validation reports two projects.
 
+```sh
+PKL_EXEC="$(command -v pkl)" bash Scripts/mixed-workspace-smoke-test.sh
+```
+
+This smoke test copies the example and its local Pkl dependency to a temporary directory, generates and validates the workspace, builds both `Hello` and `Legacy`, and checks the executable's output. It also verifies that generation and Xcode builds preserve the imported project and shared scheme's contents.
+
+## Smoke tests
+
+GitHub Actions runs each example's smoke test separately. Each script builds `xcprojgen`, validates the Pkl input, generates and validates the output, and runs `xcodebuild`. They require Pkl on `PATH` (or `PKL_EXEC`) and Xcode 27.2 or later.
+
+| Script | Additional checks |
+|---|---|
+| `Scripts/smoke-test.sh` | Runs the generated `Hello` tool. |
+| `Scripts/workspace-smoke-test.sh` | Builds all three frameworks and their hostless test bundles. |
+| `Scripts/ios-smoke-test.sh` | Builds for iOS Simulator and verifies embedded frameworks and the notification extension. |
+| `Scripts/advanced-smoke-test.sh` | Checks local Swift package linkage, executable output, and pre/post-build script results. |
+| `Scripts/mixed-workspace-smoke-test.sh` | Builds generated and legacy projects and verifies that imported files are unchanged. |
+
+For example:
+
+```sh
+PKL_EXEC="$(command -v pkl)" bash Scripts/smoke-test.sh
+```
+
+The framework and iOS scripts compile their test bundles; they do not execute those bundles.
+
 ## Swift 6 and a Notification Service Extension
 
 `Swift6Framework` in `Shared/Templates.pkl` extends `Target` from the public schema. The `compiler` settings imported from `Shared/Settings.pkl` set `SWIFT_VERSION = "6.0"`, so the generated frameworks use Swift 6 language mode.

@@ -60,7 +60,7 @@ MyWorkspace/
     Tests/CoreTests.swift
 ```
 
-`PklProject` declares a dependency on `xcproj@0.1.0` from a future GitHub release (`v0.1.0`) of this repository. That release has not been published yet, so the URI will become usable once distribution begins. During development, use a local dependency as described below, or populate the local cache with `Scripts/package-pkl.sh --skip-publish-check --install`.
+`PklProject` declares a dependency on `xcproj@0.1.0` from this repository's `0.1.0` GitHub Release. The URI becomes usable once that release's package assets are published and accessible to the consumer. During development, use a local dependency as described below, or populate the local cache with `Scripts/package-pkl.sh --skip-publish-check --install`.
 
 `Main.pkl` is the common entry point. Use `amends "@xcproj/Workspace.pkl"` to generate a workspace or `amends "@xcproj/Project.pkl"` to generate a project. `init --type` only selects the scaffold; generation determines the output from the Pkl type. A single-project scaffold places `Main.pkl`, `Sources/`, and `Tests/` at the root.
 
@@ -104,6 +104,7 @@ Pkl/
     tests/ApiTests.pkl
     README.md
 Scripts/package-pkl.sh
+Scripts/prepare-pkl-release.sh
 ```
 
 ```sh
@@ -115,11 +116,18 @@ Scripts/package-pkl.sh --skip-publish-check
 
 # Specify the Pkl executable and output directory.
 Scripts/package-pkl.sh --pkl /path/to/pkl --skip-publish-check -o /tmp/pkl-dist
+
+# Preview the four assets for a release without uploading anything.
+Scripts/prepare-pkl-release.sh 1.2.3 -o /tmp/pkl-release-1.2.3
 ```
 
 The script uses the official `pkl project package` command. By default, it writes a ZIP archive, package metadata, and SHA-256 sidecar files for both to `dist/pkl/xcproj@0.1.0/`. The packager also runs the API tests and excludes tests, manifests, and Swift sources from the ZIP. See the [official CLI documentation](https://pkl-lang.org/main/current/pkl-cli/index.html#pkl-project-package).
 
-The version, package URI, and ZIP URL are defined in `Pkl/xcproj/PklProject`. The current URLs are intended for future distribution through GitHub Releases. The repository is private and distribution is not yet configured; before publishing, set metadata and ZIP URLs that consumers can access. The script does not upload anything.
+Publishing a GitHub Release whose tag is `X.Y.Z` runs the release workflow. It builds the package at the tagged commit, runs its API tests, and attaches `package.zip`, `package.zip.sha256`, `xcproj@X.Y.Z`, and `xcproj@X.Y.Z.sha256`. Draft releases do not trigger an upload. Tags must contain exactly three numeric components without a prefix or leading zeroes; prerelease and build suffixes are not accepted. See [CI and releases](Docs/CI.md) for workflow configuration and retry behavior.
+
+The release tag determines the package version without editing the checkout. `Scripts/prepare-pkl-release.sh` passes `--version` to the package script and stages assets in a new directory, refusing to reuse existing output. `Scripts/package-pkl.sh --version 1.2.3` is also available for local packaging; its original `xcproj@1.2.3.zip` filename is preserved. The preparation script renames the archive to the `package.zip` filename declared by `packageZipUrl`, retaining the packager's metadata and SHA-256 checksums. Neither script uploads files or creates a release.
+
+`Pkl/xcproj/PklProject` defines the default development version and URLs. The scripts pass version overrides through `XCPROJ_PKL_PACKAGE_VERSION`, because Pkl's project manifest evaluator supports `env:` reads rather than `prop:` reads. Consumers need access to the release assets; a private repository's release assets remain private.
 
 Consumers declare the package in their `PklProject` dependencies, run `pkl project resolve`, and then use `amends "@xcproj/Project.pkl"` or `import "@xcproj/Project.pkl" as X`. To use a checkout, declare a local dependency with `dependencies { ["xcproj"] = import("/path/to/xcproj.pkl/Pkl/xcproj/PklProject") }`. See the [official documentation on local dependencies](https://pkl-lang.org/main/current/language-reference/index.html#local-dependencies).
 
