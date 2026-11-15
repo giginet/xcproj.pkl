@@ -8,8 +8,9 @@ intermediate snapshot; use `xcprojgen generate` to create Xcode bundles.
 
 Reusable target templates are Pkl classes (`open class ... extends X.Target`).
 Instantiate them with `new Templates.Framework { ... }`. Reuse settings as typed
-`X.Settings` objects and amend them with `(Common.compiler) { ... }`. There are
-no XcodeGen-style `targetTemplates` or `settingGroups` lookup tables.
+`X.Settings` objects and amend them with `(Common.compiler) { ... }`. For
+XcodeGen-style settings groups, compose typed `Mixin<X.Settings>` values with
+`|>`. There are no `targetTemplates` or `settingGroups` lookup tables.
 
 For example, put these two modules next to the project's `Main.pkl`.
 
@@ -25,6 +26,15 @@ compiler: X.Settings = new {
   }
   configs { ["Debug"] { base { ["ENABLE_TESTABILITY"] = "YES" } } }
 }
+
+warnings: Mixin<X.Settings> = new {
+  base { ["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES" }
+  configs { ["Debug"] { base { ["ONLY_ACTIVE_ARCH"] = "YES" } } }
+}
+
+extensionSafe: Mixin<X.Settings> = new {
+  base { ["APPLICATION_EXTENSION_API_ONLY"] = "YES" }
+}
 ```
 
 `Templates.pkl`:
@@ -38,14 +48,28 @@ open class Swift6Framework extends X.Target {
   type = "framework"
   platform = "macOS"
   deploymentTarget = "14.0"
-  settings = Common.compiler
+  settings = Common.compiler |> Common.warnings
   sources { new { path = "Sources/\(target.name)" } }
 }
 
 open class ExtensionSafeFramework extends Swift6Framework {
-  settings { base { ["APPLICATION_EXTENSION_API_ONLY"] = "YES" } }
+  settings = super.settings |> Common.extensionSafe
 }
 ```
+
+`Core` below combines the Swift 6 compiler settings, warning policy, and extension
+safety. `Networking` combines only the compiler settings and warning policy.
+`super.settings` retains the parent template's settings. The equivalent single
+expression is `Common.compiler |> Common.warnings |> Common.extensionSafe`;
+use `new X.Settings {}` as the input when starting without shared settings.
+These mixins also work on project settings.
+
+Pkl [mixins](https://pkl-lang.org/main/current/language-reference/index.html#mixins)
+apply left to right; later assignments to the same key win. Both Debug settings
+survive because the example amends the existing configuration. Use `base { ... }`
+and `configs { ... }` to retain entries; assigning `base = new Mapping { ... }`
+replaces them. A target can override the composed result with
+`settings { base { ["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "NO" } }`.
 
 The `local target = this` binding lets nested source/settings objects refer to
 the target's amended `name`. Pkl derives the path after specialization.

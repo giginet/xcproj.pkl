@@ -22,7 +22,7 @@ open class IOS extends SwiftTarget {
     settings { base { ["PRODUCT_BUNDLE_IDENTIFIER"] = "com.example.\(target.bundleSuffix)" } }
 }
 
-// A reusable Target subclass. Common.compiler enables Swift 6 language mode.
+// Common.compiler composes the Swift 6 and warning settings mixins.
 open class Swift6Framework extends X.Target {
     local target = this
     hidden bundleSuffix: String
@@ -37,7 +37,7 @@ open class Swift6Framework extends X.Target {
 
 // Further specialize the framework template for code shared with app extensions.
 open class ExtensionSafeFramework extends Swift6Framework {
-    settings { base { ["APPLICATION_EXTENSION_API_ONLY"] = "YES" } }
+    settings = super.settings |> Common.extensionSafe
 }
 
 open class App extends IOS {

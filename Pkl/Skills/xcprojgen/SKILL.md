@@ -8,6 +8,28 @@ description: Create and maintain Xcode projects with Pkl and xcprojgen. Use when
 Edit the Pkl source of truth, then use `xcprojgen` to generate Xcode bundles.
 These instructions accompany the CLI's bundled xcproj schemas and renderer.
 
+## Synchronize this skill
+
+At first use in a session, synchronize this exported skill with the installed
+`xcprojgen` CLI before following the authoring instructions. Skip this step when
+editing the skill's source files in the xcproj.pkl repository.
+
+1. Use the actual path of the `SKILL.md` you loaded to identify the parent of its
+   `xcprojgen` folder. For `/repo/.agents/skills/xcprojgen/SKILL.md`, the export
+   directory is `/repo/.agents/skills`. Do not infer it from the working directory
+   or choose another installed copy.
+2. Mark synchronization as attempted for this session, then run
+   `xcprojgen skills export "<absolute export directory>"`, replacing the
+   placeholder with that directory. This compares contents and updates changed
+   files, including references, without a separate version check.
+3. If the command reports `Updated`, notify the user and reread this `SKILL.md`
+   and any references already loaded from this skill. Continue using the updated
+   instructions without repeating synchronization. On `Unchanged`, continue.
+
+If the loaded path or CLI is unavailable, or export fails, report that
+synchronization could not complete. Continue with the available instructions
+where possible; do not retry synchronization during this session.
+
 ## Choose the entry point
 
 Inspect the existing `PklProject`, `Main.pkl`, and imported modules before
@@ -45,7 +67,8 @@ templates, and sample Swift sources. Adapt those sources to the real project;
 preserve existing application code. `validate` and `generate` resolve package
 dependencies automatically, so the configured package release must be accessible.
 
-- For targets, inheritance, settings, sources, and dependencies, read
+- For targets, inheritance, composing shared settings with `Mixin<Settings>`,
+  sources, and dependencies, read
   [Pkl authoring](references/authoring.md).
 - For reusable Project modules, multiple projects, existing `.xcodeproj`
   imports, and workspace schemes, read [Workspaces](references/workspaces.md).
