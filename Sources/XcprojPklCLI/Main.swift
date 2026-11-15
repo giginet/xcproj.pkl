@@ -149,47 +149,20 @@ struct Generate: ParsableCommand {
 struct Validate: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract:
-            "Resolve dependencies and validate a project or workspace without writing generated artifacts."
+            "Resolve dependencies and validate a Pkl project without writing generated artifacts."
     )
-    @Argument(
-        help: "Project directory, .pkl module, .xcworkspace, JSON .xcodeproj, or project.xcproj.")
-    var dir: String
+    @Argument(help: "Project directory containing Main.pkl, or a .pkl module.") var dir: String
     @OptionGroup var entry: EntryOptions
     @OptionGroup var output: OutputOptions
     @OptionGroup var evaluation: EvaluationOptions
 
     mutating func run() throws {
         let input = URL(fileURLWithPath: dir).standardizedFileURL
-        let generatedInput = ["xcworkspace", "xcodeproj", "xcproj"].contains(input.pathExtension)
-        if generatedInput,
-            evaluation.runtime.pkl != nil || !evaluation.property.isEmpty
-                || output.outputDir != nil
-                || entry.entry != nil
-        {
-            throw ValidationError(
-                "--pkl, --property, --entry, and --output-dir apply only to Pkl input")
-        }
-        let summary: String
-        switch input.pathExtension {
-        case "xcworkspace":
-            let result = try WorkspaceValidator.validate(input)
-            summary = "\(result.projectCount) projects"
-        case "xcodeproj", "xcproj":
-            let file =
-                input.pathExtension == "xcodeproj"
-                ? input.appendingPathComponent("project.xcproj") : input
-            guard FileManager.default.fileExists(atPath: file.path) else {
-                throw ValidationError(
-                    "Direct project validation requires JSON project.xcproj: \(file.path)")
-            }
-            let count = try ProjectValidator.validate(data: Data(contentsOf: file))
-            summary = "1 projects, \(count) targets"
-        default:
-            let plan = try evaluation.plan(
-                entryModule(input, entry: entry.entry), outputDirectory: output.url)
-            summary = "\(plan.projectCount) projects, \(plan.targetCount) generated targets"
-        }
-        print("Valid: \(input.path) (\(summary))")
+        let source = try entryModule(input, entry: entry.entry)
+        let plan = try evaluation.plan(source, outputDirectory: output.url)
+        print(
+            "Valid: \(input.path) (\(plan.projectCount) projects, \(plan.targetCount) generated targets)"
+        )
     }
 }
 

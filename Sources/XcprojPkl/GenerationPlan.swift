@@ -125,16 +125,6 @@ public struct GenerationPlan: Sendable {
             return path.url
         }
         try validateExistingProjectPaths(existingProjects, files: files)
-        // Validate XML against this plan, before the referenced projects exist on disk.
-        if let workspace = files.first(where: { !$0.isProject && !$0.isScheme }) {
-            let references = try WorkspaceValidator.projectURLs(
-                data: workspace.data, workspace: workspace.bundle)
-            let expected = projects.map(\.bundle) + existingProjects
-            guard Set(references.map(\.path)) == Set(expected.map(\.path)) else {
-                throw ProjectError(
-                    "Workspace references do not match generated and existing projects")
-            }
-        }
         for scheme in files where scheme.isScheme {
             try validateScheme(scheme, projects: projects)
         }

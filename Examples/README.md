@@ -39,13 +39,12 @@ projects {
 ```sh
 swift run xcprojgen validate Examples/MixedWorkspace
 swift run xcprojgen generate Examples/MixedWorkspace --output-dir /tmp/xcprojgen-mixed
-swift run xcprojgen validate /tmp/xcprojgen-mixed/Mixed.xcworkspace
 xcrun xcodebuild -list -workspace /tmp/xcprojgen-mixed/Mixed.xcworkspace
 xcrun xcodebuild -workspace /tmp/xcprojgen-mixed/Mixed.xcworkspace -scheme Legacy build
 xcrun xcodebuild -workspace /tmp/xcprojgen-mixed/Mixed.xcworkspace -scheme Hello build
 ```
 
-`importXcodeproj` also accepts absolute paths. Relative paths use `workspaceDir`; `--output-dir` rebases the workspace reference without relocating the existing project. The importer checks that the `.xcodeproj` directory exists without inspecting its contents. For an existing-only workspace, omit the `tool` entry and generated `Hello` scheme. Existing target definitions are not exposed as Pkl objects, so generated schemes cannot select those targets. Pkl validation and generation report two projects and one generated target for this example; direct workspace validation reports two projects.
+`importXcodeproj` also accepts absolute paths. Relative paths use `workspaceDir`; `--output-dir` rebases the workspace reference without relocating the existing project. The importer checks that the `.xcodeproj` directory exists without inspecting its contents. For an existing-only workspace, omit the `tool` entry and generated `Hello` scheme. Existing target definitions are not exposed as Pkl objects, so generated schemes cannot select those targets. Pkl validation and generation report two projects and one generated target for this example.
 
 ```sh
 PKL_EXEC="$(command -v pkl)" bash Scripts/mixed-workspace-smoke-test.sh

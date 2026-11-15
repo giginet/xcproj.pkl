@@ -53,7 +53,7 @@ The return type is `ExistingProject`; `projects` accepts either it or a `Project
 
 Imported paths must identify existing `.xcodeproj` directories. Their contents are opaque: neither `project.xcproj` nor `project.pbxproj` is required or parsed. Imported targets are not exposed as Pkl `Target` objects and cannot be selected by generated schemes; existing shared schemes remain available in Xcode. Importing a project does not create target dependencies. CLI project counts include imported members; target counts include generated targets only.
 
-Direct `.xcworkspace` validation checks XML membership and project directories, reporting only the project count. Direct `.xcodeproj` or `project.xcproj` validation checks JSON project contents; direct legacy `project.pbxproj` validation is unsupported.
+`xcprojgen validate` accepts a Pkl project directory containing `Main.pkl`, or a `.pkl` module. It resolves dependencies and checks the generation plan without writing Xcode projects or workspaces. Use `--entry` to select another module within the directory.
 
 Targets support `application`, `framework`, `tool`, `bundle`, `bundle.unit-test`, and `app-extension` product types. To embed an extension in an application, add a dependency with `link = false` and `embed = true`. Framework dependencies may be linked and embedded independently. An optional `infoPlist` names an existing file relative to `projectDir`; the renderer sets `INFOPLIST_FILE` relative to the generated project and disables automatic plist generation. The repository's `Examples/iOS` demonstrates inherited Swift 6 framework targets, an application, and a notification service extension.
 

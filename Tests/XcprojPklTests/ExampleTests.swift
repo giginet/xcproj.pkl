@@ -71,9 +71,7 @@ struct ExampleTests {
                 $0["build-phase"] as? String == "DemoApp/copy/Embed App Extensions"
             })
         try plan.write()
-        #expect(
-            try ProjectValidator.validate(data: Data(contentsOf: plan.projects[0].destination)) == 6
-        )
+        #expect(try Data(contentsOf: plan.projects[0].destination) == plan.projects[0].data)
     }
 
     @Test(arguments: ["link", "embed", "missing-plist"])

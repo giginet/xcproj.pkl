@@ -33,7 +33,6 @@ assert_legacy_unchanged() {
 "$cli" validate "$examples/MixedWorkspace" --pkl "${PKL_EXEC:-pkl}"
 "$cli" generate "$examples/MixedWorkspace" --pkl "${PKL_EXEC:-pkl}" --output-dir "$scratch/Generated"
 workspace="$scratch/Generated/Mixed.xcworkspace"
-"$cli" validate "$workspace"
 assert_legacy_unchanged
 
 xcodebuild -list -workspace "$workspace"

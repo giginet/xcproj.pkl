@@ -11,7 +11,6 @@ cli="$(swift build --show-bin-path)/xcprojgen"
 "$cli" validate Examples/Advanced --pkl "${PKL_EXEC:-pkl}"
 "$cli" generate Examples/Advanced --pkl "${PKL_EXEC:-pkl}" --output-dir "$scratch/Generated"
 project="$scratch/Generated/Advanced.xcodeproj"
-"$cli" validate "$project"
 test -f "$project/xcshareddata/xcschemes/AdvancedTool.xcscheme"
 
 xcodebuild -quiet -project "$project" -scheme AdvancedTool -configuration Debug \

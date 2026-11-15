@@ -27,7 +27,6 @@ struct NativeWorkspaceTests {
             String(decoding: xml.data, as: UTF8.self).contains("../A &amp; B/Example.xcodeproj"))
         #expect(!FileManager.default.fileExists(atPath: plan.destination.path))
         try plan.write()
-        #expect(try WorkspaceValidator.validate(plan.destination).projectCount == 2)
         #expect(
             try !GenerationPlan.compile(
                 source: entry, outputDirectory: plan.destination.deletingLastPathComponent()
@@ -166,7 +165,7 @@ struct NativeWorkspaceTests {
         #expect(try Data(contentsOf: plan.projects[0].destination) == original)
     }
 
-    @Test func removedMembersAreNotDeletedAndExistingValidationNeedsNoPkl() throws {
+    @Test func removedMembersAreNotDeleted() throws {
         let f = try Fixture()
         let entry = try f.pair()
         let first = try GenerationPlan.compile(source: entry)
@@ -175,10 +174,6 @@ struct NativeWorkspaceTests {
         let second = try GenerationPlan.compile(source: entry)
         try second.write()
         #expect(FileManager.default.fileExists(atPath: first.projects[1].destination.path))
-        #expect(try WorkspaceValidator.validate(second.destination).projectCount == 1)
-        #expect(
-            try ProjectValidator.validate(data: Data(contentsOf: first.projects[1].destination))
-                == 1)
     }
 
     @Test func hundredProjectsUseTwoPklProcessesAndGenerateDeterministically() throws {
@@ -225,7 +220,6 @@ struct NativeWorkspaceTests {
         let next = try GenerationPlan.compile(source: entry)
         #expect(plan.files.map(\.data) == next.files.map(\.data))
         #expect(try !next.write())
-        #expect(try WorkspaceValidator.validate(plan.destination).projectCount == 100)
     }
 
     @Test func bundledRendererWorksAfterExecutableAndResourcesMove() throws {

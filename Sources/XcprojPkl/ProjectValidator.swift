@@ -1,10 +1,10 @@
 import Foundation
 import XcodeProjectFormat
 
-/// Checks the Apple schema and local graph references without modifying the input.
+/// Checks the Apple schema and local graph references in Pkl-rendered documents.
 /// It does not evaluate build settings, external projects, or Swift package resolution.
-public enum ProjectValidator {
-    public static func validate(data: Data) throws -> Int {
+enum ProjectValidator {
+    static func validate(data: Data) throws -> Int {
         let project = try XCSchema.Project(jsonRepresentation: data)
         try validate(project)
         return project.targets.count

@@ -33,6 +33,19 @@ private func executable(_ path: URL) throws {
 }
 
 struct CLITests {
+    @Test(arguments: ["App.xcodeproj", "App.xcworkspace", "project.xcproj"])
+    func validateRequiresPklInput(_ path: String) throws {
+        let f = try Fixture()
+        if path.hasSuffix(".xcproj") {
+            try f.file(path, "{}")
+        } else {
+            try f.directory(path)
+        }
+        let result = try cli(
+            ["validate", path], fixture: f, environment: ["PKL_EXEC": "/missing/pkl"])
+        #expect(result.status != 0 && result.text.contains("Main.pkl"), "\(result.text)")
+    }
+
     @Test func initIsOfflineAndRefusesOverwriteBeforeCreatingFiles() throws {
         let f = try Fixture()
         let created = try cli(
@@ -180,20 +193,10 @@ struct NativeCLITests {
         #expect(!FileManager.default.fileExists(atPath: project.path))
         let generated = try cli(["generate"] + arguments, fixture: f, environment: environment)
         try #require(generated.status == 0, "\(generated.text)")
-        if type == "workspace" {
-            #expect(try WorkspaceValidator.validate(destination).projectCount == 1)
-        } else {
-            #expect(
-                try ProjectValidator.validate(
-                    data: Data(contentsOf: destination.appendingPathComponent("project.xcproj")))
-                    == 2)
-        }
+        #expect(FileManager.default.fileExists(atPath: destination.path))
         #expect(FileManager.default.fileExists(atPath: project.path))
         let unchanged = try cli(["generate"] + arguments, fixture: f, environment: environment)
         #expect(unchanged.status == 0 && unchanged.text.contains("Unchanged"))
-        let existing = try cli(
-            ["validate", destination.path], fixture: f, environment: ["PKL_EXEC": "/missing/pkl"])
-        #expect(existing.status == 0, "\(existing.text)")
         if type == "workspace" {
             let standalone = try cli(
                 [
@@ -202,11 +205,10 @@ struct NativeCLITests {
                 ], fixture: f, environment: environment)
             #expect(standalone.status == 0, "\(standalone.text)")
             #expect(
-                try ProjectValidator.validate(
-                    data: Data(
-                        contentsOf: f.root.appendingPathComponent(
-                            "Standalone Outputs/Core.xcodeproj/project.xcproj")))
-                    == 2)
+                FileManager.default.fileExists(
+                    atPath: f.root.appendingPathComponent(
+                        "Standalone Outputs/Core.xcodeproj/project.xcproj"
+                    ).path))
         }
         let invoked = try String(contentsOf: calls, encoding: .utf8).split(separator: "\n")
         #expect(invoked.filter { $0 == "project" }.count == (type == "workspace" ? 4 : 3))

@@ -188,7 +188,7 @@ Consequently, Pkl scheme authoring and XML generation are generator features, no
 
 Imported members are opaque `.xcodeproj` directories: the importer checks their existence and path collisions without requiring or parsing `project.xcproj`, `project.pbxproj`, or other contents. It does not convert between formats. Generated schemes reference generated targets only; imported projects retain their existing shared schemes. Generation plans count all project members and only generated targets.
 
-Direct workspace validation checks XML membership and referenced project directories, with a project count only. Direct JSON project validation remains available by passing an `.xcodeproj` bundle or `project.xcproj` file; direct legacy project validation is unsupported.
+`xcprojgen validate` operates on Pkl project directories or modules and checks their generation plans without writing artifacts. Workspace membership is validated and rendered by Pkl. The CLI does not accept existing Xcode bundles or JSON files as validation inputs.
 
 ## Validation boundary
 

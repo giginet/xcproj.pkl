@@ -77,7 +77,7 @@ xcprojgen init MyWorkspace --type workspace
 # Create a scaffold for a single project
 xcprojgen init MyLibrary --type project
 
-# Resolve Pkl dependencies and validate the generated content
+# Resolve dependencies and validate the Pkl project without writing output
 xcprojgen validate MyWorkspace
 
 # Generate the workspace and each of its projects
@@ -94,6 +94,8 @@ xcprojgen generate MyWorkspace --output-dir /tmp/generated
 # Generate from an entry point other than Main.pkl
 xcprojgen generate MyWorkspace --entry Projects/Core/Project.pkl
 ```
+
+`validate` accepts a Pkl project directory containing `Main.pkl`, or a `.pkl` module. Use `--entry` to select another module within the directory. It resolves dependencies and checks the generation plan without writing Xcode projects or workspaces.
 
 ## Advanced Project Examples
 

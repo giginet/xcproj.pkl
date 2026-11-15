@@ -10,7 +10,6 @@ cli="$(swift build --show-bin-path)/xcprojgen"
 "$cli" validate Examples/iOS --pkl "${PKL_EXEC:-pkl}"
 "$cli" generate Examples/iOS --pkl "${PKL_EXEC:-pkl}" --output-dir "$scratch/Generated"
 project="$scratch/Generated/Demo.xcodeproj"
-"$cli" validate "$project"
 xcodebuild -quiet -project "$project" -scheme DemoApp -configuration Debug \
   -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath "$scratch/DerivedData" CODE_SIGNING_ALLOWED=NO build

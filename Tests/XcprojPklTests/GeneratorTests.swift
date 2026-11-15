@@ -16,9 +16,6 @@ private let validDocument = #"""
     }
     """#
 
-@Test func existingProjectValidationDoesNotRequirePkl() throws {
-    #expect(try ProjectValidator.validate(data: Data(validDocument.utf8)) == 1)
-}
 @Test func rawValidatorCatchesDanglingMembershipAndMissingProduct() throws {
     let bad = validDocument.replacingOccurrences(
         of: #""target-membership":["App"]"#, with: #""target-membership":["Missing"]"#)
@@ -44,31 +41,6 @@ private let validDocument = #"""
         _ = try ProjectValidator.validate(data: Data(bad.utf8))
     }
 }
-@Test func workspaceXMLResolvesGroupsAndRejectsEntitiesAndDuplicateReferences() throws {
-    let f = try Fixture()
-    let workspace = f.root.appendingPathComponent("Demo.xcworkspace")
-    let xml =
-        #"<Workspace version="1.0"><Group location="group:Modules"><FileRef location="group:A.xcodeproj"/></Group><FileRef location="container:B.xcodeproj"/></Workspace>"#
-    let urls = try WorkspaceValidator.projectURLs(data: Data(xml.utf8), workspace: workspace)
-    #expect(
-        urls.map(\.path) == [
-            f.root.appendingPathComponent("Modules/A.xcodeproj").path,
-            f.root.appendingPathComponent("B.xcodeproj").path,
-        ])
-    let duplicate =
-        #"<Workspace version="1.0"><FileRef location="group:A.xcodeproj"/><FileRef location="container:A.xcodeproj"/></Workspace>"#
-    expectFailure(containing: "Duplicate") {
-        _ = try WorkspaceValidator.projectURLs(data: Data(duplicate.utf8), workspace: workspace)
-    }
-    let entity =
-        #"<!DOCTYPE Workspace [<!ENTITY x "A.xcodeproj">]><Workspace version="1.0"><FileRef location="group:&x;"/></Workspace>"#
-    expectFailure(containing: "entity") {
-        _ = try WorkspaceValidator.projectURLs(data: Data(entity.utf8), workspace: workspace)
-    }
-    try f.file("Demo.xcworkspace/contents.xcworkspacedata", xml)
-    expectFailure(containing: "A.xcodeproj") { _ = try WorkspaceValidator.validate(workspace) }
-}
-
 private func manifest(_ f: Fixture, paths: [[String: Any]]) throws -> InputManifest {
     let object: [String: Any] = [
         "protocolVersion": 1, "schemaVersion": 2, "kind": "project",

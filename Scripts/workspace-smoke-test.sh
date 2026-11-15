@@ -10,7 +10,6 @@ cli="$(swift build --show-bin-path)/xcprojgen"
 "$cli" validate Examples/Workspace --pkl "${PKL_EXEC:-pkl}"
 "$cli" generate Examples/Workspace --pkl "${PKL_EXEC:-pkl}"
 workspace="Examples/Workspace/Modular.xcworkspace"
-"$cli" validate "$workspace"
 xcodebuild -list -workspace "$workspace"
 for module in Catalog DesignSystem Networking; do
   xcodebuild -quiet -workspace "$workspace" -scheme "$module" -configuration Debug \

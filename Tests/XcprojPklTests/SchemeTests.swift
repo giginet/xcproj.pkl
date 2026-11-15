@@ -120,7 +120,6 @@ struct SchemeTests {
             scheme.destination.path.hasSuffix(
                 "Generated/Together.xcworkspace/xcshareddata/xcschemes/All.xcscheme"))
         try plan.write()
-        #expect(try WorkspaceValidator.validate(plan.destination).projectCount == 2)
     }
 
     @Test(arguments: ["target", "configuration", "test-type", "name"])

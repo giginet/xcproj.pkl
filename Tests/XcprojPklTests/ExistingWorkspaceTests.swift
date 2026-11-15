@@ -31,7 +31,6 @@ struct ExistingWorkspaceTests {
             String(decoding: workspace.data, as: UTF8.self).contains("../Vendor/Existing.xcodeproj")
         )
         try plan.write()
-        #expect(try WorkspaceValidator.validate(plan.destination).projectCount == 2)
         #expect(try String(contentsOf: existing, encoding: .utf8) == "opaque project")
     }
 
@@ -44,7 +43,6 @@ struct ExistingWorkspaceTests {
         #expect(plan.projectCount == 1 && plan.targetCount == 0)
         #expect(plan.projects.isEmpty && plan.files.count == 1)
         try plan.write()
-        #expect(try WorkspaceValidator.validate(plan.destination).projectCount == 1)
     }
 
     @Test(arguments: ["Missing.xcodeproj", "Regular.xcodeproj", "Wrong.txt"])
