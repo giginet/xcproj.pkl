@@ -8,7 +8,7 @@ tag=""
 
 usage() {
   cat <<'USAGE'
-Usage: Scripts/prepare-pkl-release.sh pkl/X.Y.Z [--pkl PATH] [-o DIRECTORY]
+Usage: Scripts/prepare-pkl-release.sh X.Y.Z [--pkl PATH] [-o DIRECTORY]
 
 Build and stage package.zip, package.zip.sha256, xcproj@X.Y.Z, and
 xcproj@X.Y.Z.sha256 for an existing GitHub Release. Runs package API tests.
@@ -50,11 +50,11 @@ while (($#)); do
   esac
 done
 
-if [[ ! "$tag" =~ ^pkl/(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-  printf 'Invalid release tag: %s (expected pkl/X.Y.Z without leading zeroes)\n' "$tag" >&2
+if [[ ! "$tag" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+  printf 'Invalid release tag: %s (expected X.Y.Z without leading zeroes)\n' "$tag" >&2
   exit 2
 fi
-version="${tag#pkl/}"
+version="$tag"
 output_path="${output_path:-$repo_root/dist/pkl-release/$version}"
 if [[ "$output_path" != /* ]]; then
   output_path="$PWD/$output_path"

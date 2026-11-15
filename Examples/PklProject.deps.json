@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "resolvedDependencies": {
-    "package://github.com/giginet/xcproj.pkl/releases/download/pkl/0.1.0/xcproj@0": {
+    "package://github.com/giginet/xcproj.pkl/releases/download/0.1.0/xcproj@0": {
       "type": "local",
-      "uri": "projectpackage://github.com/giginet/xcproj.pkl/releases/download/pkl/0.1.0/xcproj@0.1.0",
+      "uri": "projectpackage://github.com/giginet/xcproj.pkl/releases/download/0.1.0/xcproj@0.1.0",
       "path": "../Pkl/xcproj"
     }
   }

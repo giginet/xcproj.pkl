@@ -61,14 +61,13 @@ struct PklPackageTests {
             JSONSerialization.jsonObject(with: Data(contentsOf: metadata)) as? [String: Any])
         let uri = try #require(json["packageUri"] as? String)
         #expect(json["version"] as? String == "1.2.3")
-        // Pkl normalizes percent-encoded slashes in package identities.
         #expect(
             uri
-                == "package://github.com/giginet/xcproj.pkl/releases/download/pkl/1.2.3/xcproj@1.2.3"
+                == "package://github.com/giginet/xcproj.pkl/releases/download/1.2.3/xcproj@1.2.3"
         )
         #expect(
             json["packageZipUrl"] as? String
-                == "https://github.com/giginet/xcproj.pkl/releases/download/pkl%2F1.2.3/package.zip"
+                == "https://github.com/giginet/xcproj.pkl/releases/download/1.2.3/package.zip"
         )
         let checksums = try #require(json["packageZipChecksums"] as? [String: String])
         #expect(try checksums["sha256"] == digest(archive))
@@ -90,7 +89,7 @@ struct PklPackageTests {
             "Consumer/PklProject",
             """
             amends "pkl:Project"
-            dependencies { ["xcproj"] { uri = \(quoted(uri.replacingOccurrences(of: "/pkl/", with: "/pkl%2F"))) } }
+            dependencies { ["xcproj"] { uri = \(quoted(uri)) } }
             """)
         _ = try run(pkl, ["project", "resolve", "--cache-dir", cache.path, consumer.path])
         let source = try f.file(
@@ -133,7 +132,7 @@ struct PklPackageTests {
         let script = repository.appendingPathComponent("Scripts/prepare-pkl-release.sh").path
         let manifest = repository.appendingPathComponent("Pkl/xcproj/PklProject")
         let originalManifest = try Data(contentsOf: manifest)
-        let arguments = [script, "pkl/2.4.6", "--pkl", pkl, "--output-path", output.path]
+        let arguments = [script, "2.4.6", "--pkl", pkl, "--output-path", output.path]
         _ = try packageCommand("/bin/bash", arguments, fixture: f)
 
         let files = try FileManager.default.contentsOfDirectory(atPath: output.path)
@@ -154,15 +153,15 @@ struct PklPackageTests {
         #expect(json["version"] as? String == "2.4.6")
         #expect(
             json["packageUri"] as? String
-                == "package://github.com/giginet/xcproj.pkl/releases/download/pkl/2.4.6/xcproj@2.4.6"
+                == "package://github.com/giginet/xcproj.pkl/releases/download/2.4.6/xcproj@2.4.6"
         )
         #expect(
             json["packageZipUrl"] as? String
-                == "https://github.com/giginet/xcproj.pkl/releases/download/pkl%2F2.4.6/package.zip"
+                == "https://github.com/giginet/xcproj.pkl/releases/download/2.4.6/package.zip"
         )
         #expect(
             json["sourceCodeUrlScheme"] as? String
-                == "https://github.com/giginet/xcproj.pkl/blob/pkl%2F2.4.6/Pkl/xcproj%{path}#L%{line}-L%{endLine}"
+                == "https://github.com/giginet/xcproj.pkl/blob/2.4.6/Pkl/xcproj%{path}#L%{line}-L%{endLine}"
         )
         let checksums = try #require(json["packageZipChecksums"] as? [String: String])
         #expect(try checksums["sha256"] == digest(archive))
@@ -176,8 +175,8 @@ struct PklPackageTests {
     }
 
     @Test(arguments: [
-        "v1.2.3", "pkl/1.2", "pkl/01.2.3", "pkl/1.02.3", "pkl/1.2.03", "pkl/1.2.3-rc.1",
-        "pkl/1.2.3/other",
+        "pkl/1.2.3", "v1.2.3", "1.2", "01.2.3", "1.02.3", "1.2.03", "1.2.3-rc.1",
+        "1.2.3/other",
     ])
     func invalidReleaseTagsFailBeforeRunningPkl(_ tag: String) throws {
         let f = try Fixture()

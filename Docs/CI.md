@@ -25,7 +25,7 @@ Smoke tests run unsigned macOS and iOS Simulator builds. They also compile the e
 
 ## Publishing a Pkl package
 
-Publish a GitHub Release with a tag such as `pkl/0.1.0`. The Publish Pkl package workflow checks out that release's commit, derives the package version from its tag, runs packaging and API validation, and uploads:
+Publish a GitHub Release with a tag such as `0.1.0`. The Publish Pkl package workflow checks out that release's commit, derives the package version from its tag, runs packaging and API validation, and uploads:
 
 - `package.zip`
 - `package.zip.sha256`
@@ -34,14 +34,14 @@ Publish a GitHub Release with a tag such as `pkl/0.1.0`. The Publish Pkl package
 
 The metadata and checksums are required alongside the ZIP for Pkl dependency resolution. See the [official Pkl packaging documentation](https://pkl-lang.org/main/current/pkl-cli/index.html#pkl-project-package).
 
-Only exact `pkl/x.y.z` tags are accepted. Other release prefixes are ignored. The workflow subscribes to [`release.published`](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#release), so creating a draft or pushing a tag alone does not publish artifacts. The workflow must be included in the tagged commit.
+Only exact `X.Y.Z` tags are accepted, without a prefix or leading zeroes. Other tag formats fail validation before packaging. The workflow subscribes to [`release.published`](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#release), so creating a draft or pushing a tag alone does not publish artifacts. The workflow must be included in the tagged commit.
 
 The upload uses the repository's `GITHUB_TOKEN` with `contents: write` permission; other workflows have read-only repository permissions. No additional secret is needed. Existing release assets are not overwritten. If an upload only partially succeeds, remove the incomplete upload's assets before rerunning the failed workflow.
 
 For an offline packaging check, without creating or modifying a GitHub Release:
 
 ```sh
-PKL_EXEC="$(command -v pkl)" bash Scripts/prepare-pkl-release.sh pkl/0.1.0 --output-path /tmp/xcproj-pkl-release
+PKL_EXEC="$(command -v pkl)" bash Scripts/prepare-pkl-release.sh 0.1.0 --output-path /tmp/xcproj-pkl-release
 ```
 
 Publishing assets does not change repository visibility. Consumers need access to the release URLs; local dependencies and locally installed package caches continue to work for private development.
