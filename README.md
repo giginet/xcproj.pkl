@@ -116,28 +116,6 @@ into your agent's skills directory:
 xcprojgen skills export .agents/skills
 ```
 
-The output directory is the parent of the skill folder. This command writes
-`.agents/skills/xcprojgen/SKILL.md` and its `references/` documents, covering Pkl
-target inheritance, shared settings, dependencies, and Project/Workspace creation
-with `xcprojgen`. Choose the parent directory your agent uses for skill discovery.
-
-Export works offline without Pkl or Xcode. Run it again after upgrading the CLI:
-it compares file contents, overwrites changed bundled files, restores missing
-files, and prints `Updated agent skill: ...` when an existing skill changes.
-Identical files keep their modification times and produce `Unchanged agent
-skill: ...`; the first export prints `Exported agent skill: ...`. Additional
-files and other skills in the output directory are preserved. Edits to the
-bundled skill files are replaced on the next export.
-
-The exported skill instructs the agent to synchronize it with the installed CLI
-once per session, using the path of the `SKILL.md` it actually loaded. If files
-change, the agent reports the update and rereads the instructions and any
-references already loaded. This uses the same `skills export` command and
-requires the CLI to be available and the destination to be writable. It runs
-when the agent follows the skill's instructions, rather than as a background
-update service. If synchronization cannot complete, the agent reports the reason
-and continues with the available instructions where possible.
-
 ## Advanced Project Examples
 
 ### Target Template Inheritance
