@@ -2,17 +2,8 @@
 
 ## Modules, classes, and shared settings
 
-Use the public `@xcproj/Project.pkl` and `@xcproj/Workspace.pkl` modules.
-`Internal/` is an implementation detail. Public module evaluation produces an
-intermediate snapshot; use `xcprojgen generate` to create Xcode bundles.
-
-Reusable target templates are Pkl classes (`open class ... extends X.Target`).
-Instantiate them with `new Templates.Framework { ... }`. Reuse settings as typed
-`X.Settings` objects and amend them with `(Common.compiler) { ... }`. For
-XcodeGen-style settings groups, compose typed `Mixin<X.Settings>` values with
-`|>`. There are no `targetTemplates` or `settingGroups` lookup tables.
-
-For example, put these two modules next to the project's `Main.pkl`.
+Define target templates with `extends`, specialize objects with amendments, and
+combine `Mixin<X.Settings>` values with `|>`. Put these modules next to `Main.pkl`.
 
 `Settings.pkl`:
 
@@ -57,25 +48,14 @@ open class ExtensionSafeFramework extends Swift6Framework {
 }
 ```
 
-`Core` below combines the Swift 6 compiler settings, warning policy, and extension
-safety. `Networking` combines only the compiler settings and warning policy.
-`super.settings` retains the parent template's settings. The equivalent single
-expression is `Common.compiler |> Common.warnings |> Common.extensionSafe`;
-use `new X.Settings {}` as the input when starting without shared settings.
-These mixins also work on project settings.
+Mixins apply left to right; later assignments to the same key win.
+`super.settings` retains inherited settings. Amending `base` and `configs`
+preserves existing entries, including both Debug settings in this example.
+These mixins work on project and target settings.
 
-Pkl [mixins](https://pkl-lang.org/main/current/language-reference/index.html#mixins)
-apply left to right; later assignments to the same key win. Both Debug settings
-survive because the example amends the existing configuration. Use `base { ... }`
-and `configs { ... }` to retain entries; assigning `base = new Mapping { ... }`
-replaces them. A target can override the composed result with
-`settings { base { ["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "NO" } }`.
-
-The `local target = this` binding lets nested source/settings objects refer to
-the target's amended `name`. Pkl derives the path after specialization.
-`settings { ... }` amends inherited settings. `sources { new { ... } }` appends
-to an inherited listing; `sources = new Listing { ... }` replaces it. Use a new
-listing when replacing inherited dependencies or build phases as well.
+`local target = this` lets nested objects use the target's specialized `name`.
+`sources { new { ... } }` appends to the inherited listing;
+`sources = new Listing { ... }` replaces it.
 
 `Main.pkl`:
 
@@ -110,41 +90,34 @@ schemes {
 }
 ```
 
-Create/adapt the source directories before validating. Mapping keys such as
-`core` identify dependencies and scheme targets; `name` is the Xcode target
-name. Keep keys and `idNamespace` stable when renaming display names to avoid
-unnecessary identity changes.
+Create the source directories before validating. Mapping keys such as `core`
+identify dependencies and scheme targets; `name` is the Xcode target name.
 
 ## Paths and common target choices
 
 `projectDir` defaults to the directory of the Project module. Source folders,
 `infoPlist`, and local Swift package paths are relative to `projectDir`.
-`sources { new { path = "Sources" } }` declares a folder; use
-`kind = "file"` for an individual source file. Low-level Xcode file references
-and script paths retain Xcode's own path syntax.
+Sources default to folders; use `kind = "file"` for an individual file.
 
 `Target.type` and `Target.platform` are case-sensitive string unions. Common
 types are `application`, `framework`, `tool`, `bundle.unit-test`,
 `bundle.ui-testing`, and `app-extension`; platforms include `iOS`, `macOS`,
-`tvOS`, `watchOS`, and `visionOS`. Build settings accept strings or
-`Listing<String>`, so use `"YES"`, `"NO"`, and `"6.0"` rather than booleans or
-numbers. Configure shared values in `settings.base` and per-configuration values
-in `settings.configs["Debug"].base`. Project `configs` maps names to `"debug"`
-or `"release"`; its defaults are Debug and Release.
+`tvOS`, `watchOS`, and `visionOS`.
 
-For an app, use `type = "application"`. A notification service extension uses
-`type = "app-extension"` with an `infoPlist` path to a real plist declaring its
-extension point and principal class. On the app target, embed it with
-`dependencies { new { target = "notifications"; link = false; embed = true } }`.
-Use `embed = true` for linked dynamic frameworks the app must contain. Shared
-extension code should use extension-safe framework settings. See the matching
-release's `Examples/iOS` for the complete app/extension configuration and plist.
+Build settings accept `String` or `Listing<String>`, including `"YES"`, `"NO"`,
+and `"6.0"`. Use `settings.base` for shared values and
+`settings.configs["Debug"].base` for configuration overrides. Project `configs`
+maps names to `"debug"` or `"release"` and defaults to Debug and Release.
+
+Use `embed = true` for framework dependencies to bundle with an app. Embed an
+extension with `link = false; embed = true`. See
+[Examples/iOS](https://github.com/giginet/xcproj.pkl/tree/main/Examples/iOS)
+for the app, notification service extension, and plist configuration.
 
 ## Swift packages, scripts, and schemes
 
-Declare Swift packages in a Project's `packages` mapping, then select a product
-in target dependencies. Merge these entries into the existing mappings; each
-property can be declared once in a Pkl object. For a local package:
+Declare packages in `packages` and select products in target dependencies.
+Add these entries to the existing mappings:
 
 ```pkl
 packages {
@@ -157,17 +130,11 @@ targets {
 }
 ```
 
-The package alias and Swift product name are different identifiers. Remote
-packages use `RemoteSwiftPackage`; inspect the installed public schema's typed
-version constraints before choosing one. Xcode resolves Swift packages during
-builds, independently of the Pkl package resolved by `xcprojgen`.
+`package` is the mapping key; `product` is the Swift package's product name.
+Remote packages use `RemoteSwiftPackage`.
 
-Use `preBuildScripts` or `postBuildScripts` for script phases surrounding the
-default phases. Specify `name`, `script`, and the actual `inputPaths` /
-`outputPaths` needed for dependency analysis and sandboxing. An explicit
-`buildPhases` listing replaces the generated phase order entirely.
+Use `preBuildScripts` or `postBuildScripts` with `name`, `script`, `inputPaths`,
+and `outputPaths`. An explicit `buildPhases` listing replaces the default phases.
 
-`schemes` generates shared `.xcscheme` files with build, run, test, profile,
-analyze, and archive actions. Project schemes use local target keys; workspace
-schemes use `project-key/target-key`. A runnable scheme needs an appropriate
-`run` target; the framework/test scheme above intentionally has no run action.
+`schemes` generates shared `.xcscheme` files. Project schemes use target keys;
+workspace schemes use `project-key/target-key`.

@@ -1,79 +1,41 @@
 ---
 name: xcprojgen
-description: Create and maintain Xcode projects with Pkl and xcprojgen. Use when generating .xcodeproj projects or .xcworkspace workspaces, authoring Main.pkl, defining reusable target templates, or sharing build settings across targets and projects.
+description: Create Xcode projects and workspaces with Pkl and xcprojgen. Use when generating .xcodeproj or .xcworkspace bundles, defining target templates, or sharing build settings.
 ---
 
 # xcprojgen
 
-Edit the Pkl source of truth, then use `xcprojgen` to generate Xcode bundles.
-These instructions accompany the CLI's bundled xcproj schemas and renderer.
-
 ## Synchronize this skill
 
-At first use in a session, synchronize this exported skill with the installed
-`xcprojgen` CLI before following the authoring instructions. Skip this step when
-editing the skill's source files in the xcproj.pkl repository.
-
-1. Use the actual path of the `SKILL.md` you loaded to identify the parent of its
-   `xcprojgen` folder. For `/repo/.agents/skills/xcprojgen/SKILL.md`, the export
-   directory is `/repo/.agents/skills`. Do not infer it from the working directory
-   or choose another installed copy.
-2. Mark synchronization as attempted for this session, then run
-   `xcprojgen skills export "<absolute export directory>"`, replacing the
-   placeholder with that directory. This compares contents and updates changed
-   files, including references, without a separate version check.
-3. If the command reports `Updated`, notify the user and reread this `SKILL.md`
-   and any references already loaded from this skill. Continue using the updated
-   instructions without repeating synchronization. On `Unchanged`, continue.
-
-If the loaded path or CLI is unavailable, or export fails, report that
-synchronization could not complete. Continue with the available instructions
-where possible; do not retry synchronization during this session.
+Once per session, run `xcprojgen skills export "<output-dir>"`. Use the absolute
+path of the parent of the `xcprojgen` directory containing the loaded `SKILL.md`.
+On `Updated`, notify the user, reread this file and any loaded references, then
+resume the task.
+If synchronization fails, report it and continue with the available instructions.
+Skip synchronization when editing this skill's sources in the xcproj.pkl repository.
 
 ## Choose the entry point
-
-Inspect the existing `PklProject`, `Main.pkl`, and imported modules before
-changing a configuration. Keep the project's chosen package dependency and
-organization unless the task calls for changing them.
 
 - `xcprojgen generate` uses `Main.pkl` in the current directory.
 - `xcprojgen generate <dir>` uses `<dir>/Main.pkl`.
 - `xcprojgen generate <file.pkl>` uses that module directly.
 - `validate` accepts the same inputs.
 
-`Main.pkl` is the CLI's default entry point. Amending `@xcproj/Project.pkl`
-generates one `.xcodeproj`; amending `@xcproj/Workspace.pkl` generates a
-`.xcworkspace` and its Pkl-defined member projects. The module's `name` determines
-the bundle name. `--output-dir` accepts a directory, not a bundle filename;
-there is no `--entry` option.
+Amend `@xcproj/Project.pkl` for a `.xcodeproj`, or `@xcproj/Workspace.pkl` for a
+`.xcworkspace` and its projects. The module's `name` determines the bundle name;
+`--output-dir` selects the destination directory.
 
 ## Create or update a project
 
-Check the toolchain with `xcprojgen doctor`. It checks Pkl 0.33.0+ and the selected
-Xcode's `xcodeproj` and `xcprojformatter` tools. If the Xcode tools are missing,
-install/select Xcode 27.2 or later using `xcode-select` or `DEVELOPER_DIR`. Use
-`--pkl <path>` or `PKL_EXEC` when Pkl is not on `PATH`.
-
-For a new configuration, scaffold the requested shape:
+Run `xcprojgen doctor` to check Pkl and Xcode tools. For a new configuration,
+choose a project or workspace scaffold:
 
 ```sh
 xcprojgen init MyLibrary --type project
 xcprojgen init MyWorkspace --type workspace
 ```
 
-Choose one command for the requested result. `init` refuses to overwrite files.
-It creates `PklProject` with a versioned `xcproj` package dependency, `Main.pkl`,
-templates, and sample Swift sources. Adapt those sources to the real project;
-preserve existing application code. `validate` and `generate` resolve package
-dependencies automatically, so the configured package release must be accessible.
-
-- For targets, inheritance, composing shared settings with `Mixin<Settings>`,
-  sources, and dependencies, read
-  [Pkl authoring](references/authoring.md).
-- For reusable Project modules, multiple projects, existing `.xcodeproj`
-  imports, and workspace schemes, read [Workspaces](references/workspaces.md).
-
-## Validate, generate, and build
+Edit the generated Pkl files and sources, then validate and generate:
 
 ```sh
 xcprojgen validate MyLibrary
@@ -81,21 +43,14 @@ xcprojgen generate MyLibrary
 xcprojgen generate MyWorkspace --output-dir Build/Generated
 ```
 
-`validate` checks Pkl evaluation and the generation plan. It does not validate
-generated Xcode bundles or compile Swift. `generate` formats generated projects
-with `xcprojformatter` and leaves identical files untouched. Fix configuration
-errors in Pkl and regenerate.
+`validate` checks Pkl evaluation and the generation plan. Both commands resolve
+package dependencies. Use `xcrun xcodebuild` for build verification.
 
-When build verification is part of the task, list the generated bundle's schemes
-with `xcrun xcodebuild -list -project <name>.xcodeproj` or
-`-workspace <name>.xcworkspace`, then build the intended scheme and destination.
-An iOS Simulator build does not demonstrate device signing or runtime behavior.
+## References
 
-Consult the [xcproj Pkl API reference (pkldoc)](https://giginet.github.io/xcproj.pkl/)
-for public types and properties. The hosted reference tracks `main`; check the
-public schema at the matching release tag when using an older package or when
-the hosted reference is unavailable. The repository's
-[package guide](https://github.com/giginet/xcproj.pkl/blob/main/Pkl/xcproj/README.md)
-and [examples](https://github.com/giginet/xcproj.pkl/tree/main/Examples) cover
-additional features. Pkl's [language reference](https://pkl-lang.org/main/current/language-reference/index.html)
-explains the underlying amendment and inheritance semantics.
+- [Pkl authoring](references/authoring.md): target inheritance, settings mixins,
+  dependencies, and schemes.
+- [Workspaces](references/workspaces.md): reusable Projects and existing project imports.
+- [Pkl API reference (main)](https://giginet.github.io/xcproj.pkl/)
+- [Examples](https://github.com/giginet/xcproj.pkl/tree/main/Examples)
+- [Pkl language reference](https://pkl-lang.org/main/current/language-reference/index.html)

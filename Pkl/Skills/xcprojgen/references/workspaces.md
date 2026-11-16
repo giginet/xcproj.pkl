@@ -1,7 +1,6 @@
 # Projects inside a Workspace
 
-Keep one module per generated Xcode project and compose them from the workspace
-entry. A useful layout for a family of framework/test projects is:
+Use one Pkl module per Xcode project and import them from the workspace entry:
 
 ```text
 PklProject
@@ -15,8 +14,7 @@ Modules/Networking/Sources/
 Modules/Networking/Tests/
 ```
 
-The root `PklProject` contains the `xcproj` dependency created by `init`. Project
-modules below it can use the same `@xcproj` dependency.
+The root `PklProject` supplies the `@xcproj` dependency to these modules.
 
 `Templates/FrameworkProject.pkl` defines a reusable Project module:
 
@@ -72,23 +70,20 @@ schemes {
 }
 ```
 
-Run `xcprojgen validate` and `xcprojgen generate` at the workspace root.
-`Libraries.xcworkspace` and the projects beside their respective Project modules
-are generated. A specific project can also be generated with
+Run `xcprojgen validate` and `xcprojgen generate` at the root. This creates
+`Libraries.xcworkspace` and each project beside its Project module.
+Generate a single project with
 `xcprojgen generate Modules/Core/Project.pkl`.
 
-For many projects, `projects = import*("Modules/*/Project.pkl")` discovers the
-modules automatically. Glob imports use the matched import paths as mapping
-keys, so use explicit aliases as above when stable short keys are useful for
-workspace schemes. Adding projects to a workspace does not itself create target
-dependencies between them.
+For many projects, use `projects = import*("Modules/*/Project.pkl")`.
+Glob imports use matched paths as keys; explicit imports allow short aliases
+for scheme targets.
 
 ## Output paths and existing projects
 
-`workspaceDir` defaults to the workspace module's directory. Passing
-`--output-dir Build/Generated` changes the workspace destination to
-`Build/Generated/Libraries.xcworkspace`; member projects keep their own output
-directories. Relative `--output-dir` paths use the current working directory.
+`workspaceDir` defaults to the workspace module's directory.
+`--output-dir Build/Generated` writes `Build/Generated/Libraries.xcworkspace`
+relative to the working directory; member projects keep their own output paths.
 
 To include an existing project, add this entry to `projects`:
 
@@ -96,10 +91,6 @@ To include an existing project, add this entry to `projects`:
 ["legacy"] = module.importXcodeproj("Vendor/Legacy.xcodeproj")
 ```
 
-Use `module.importXcodeproj` inside the mapping so the receiver remains the
-workspace module. Relative paths use `workspaceDir`; absolute paths also work.
-The directory must already exist. Imported bundles are referenced as-is:
-generation does not parse, convert, or format their contents. Their targets are
-not available as Pkl objects and cannot be selected by generated schemes;
-their existing shared schemes remain available in Xcode. A workspace may contain
-only existing projects.
+`module.importXcodeproj` resolves relative paths from `workspaceDir` and also
+accepts absolute paths. The directory must exist. Xcode uses the referenced
+project and its existing shared schemes.
