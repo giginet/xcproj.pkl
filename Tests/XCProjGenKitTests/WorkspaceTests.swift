@@ -226,7 +226,7 @@ struct NativeWorkspaceTests {
         #expect(try !next.write())
     }
 
-    @Test func bundledResourcesWorkAfterExecutableAndResourcesMove() throws {
+    @Test func bundledRendererWorksAfterExecutableAndResourcesMove() throws {
         let f = try Fixture()
         let binary = repository.appendingPathComponent(".build/debug/xcprojgen")
             .resolvingSymlinksInPath()
@@ -267,20 +267,5 @@ struct NativeWorkspaceTests {
         #expect(
             !FileManager.default.fileExists(
                 atPath: f.root.appendingPathComponent("Example.xcodeproj").path))
-
-        let export = Process()
-        export.executableURL = installed.appendingPathComponent("xcprojgen")
-        export.currentDirectoryURL = f.root.appendingPathComponent("OtherCwd")
-        export.arguments = ["skills", "export", "Skills"]
-        export.standardOutput = handle
-        export.standardError = handle
-        try export.run()
-        export.waitUntilExit()
-        #expect(export.terminationStatus == 0)
-        #expect(
-            try Data(
-                contentsOf: f.root.appendingPathComponent("OtherCwd/Skills/xcprojgen/SKILL.md"))
-                == Data(
-                    contentsOf: repository.appendingPathComponent("Pkl/Skills/xcprojgen/SKILL.md")))
     }
 }

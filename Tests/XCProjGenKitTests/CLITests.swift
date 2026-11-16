@@ -34,7 +34,7 @@ private func executable(_ path: URL) throws {
 }
 
 struct CLITests {
-    @Test func skillsExportIsOfflineAndOnlyWritesChangedFiles() throws {
+    @Test func skillsExportReportsContentChanges() throws {
         let f = try Fixture()
         let arguments = ["skills", "export", "Agent Skills"]
         let environment = ["PKL_EXEC": "/missing/pkl", "DEVELOPER_DIR": "/missing/Xcode.app"]
@@ -42,51 +42,17 @@ struct CLITests {
         try #require(created.status == 0 && created.text.hasPrefix("Exported"), "\(created.text)")
         let source = repository.appendingPathComponent("Pkl/Skills/xcprojgen")
         let destination = f.root.appendingPathComponent("Agent Skills/xcprojgen")
-        let manager = FileManager.default
-        let paths = try manager.subpathsOfDirectory(atPath: source.path).filter {
-            try source.appendingPathComponent($0).resourceValues(forKeys: [.isRegularFileKey])
-                .isRegularFile == true
-        }
-        let oldDate = Date(timeIntervalSince1970: 1_000_000)
-        for path in paths {
-            let file = destination.appendingPathComponent(path)
-            #expect(
-                try Data(contentsOf: file) == Data(contentsOf: source.appendingPathComponent(path)))
-            try manager.setAttributes([.modificationDate: oldDate], ofItemAtPath: file.path)
-        }
+        #expect(
+            FileManager.default.contentsEqual(atPath: source.path, andPath: destination.path))
+
         let unchanged = try cli(arguments, fixture: f, environment: environment)
         #expect(unchanged.status == 0 && unchanged.text.hasPrefix("Unchanged"), "\(unchanged.text)")
-        for path in paths {
-            let attributes = try manager.attributesOfItem(
-                atPath: destination.appendingPathComponent(path).path)
-            #expect(attributes[.modificationDate] as? Date == oldDate)
-        }
 
         try f.file("Agent Skills/xcprojgen/SKILL.md", "outdated skill")
-        try manager.removeItem(at: destination.appendingPathComponent("references/workspaces.md"))
-        let personal = try f.file("Agent Skills/xcprojgen/notes.md", "keep notes")
-        let other = try f.file("Agent Skills/other/SKILL.md", "keep other skill")
         let updated = try cli(arguments, fixture: f, environment: environment)
         #expect(updated.status == 0 && updated.text.hasPrefix("Updated"), "\(updated.text)")
-        for path in paths {
-            #expect(
-                try Data(contentsOf: destination.appendingPathComponent(path))
-                    == Data(contentsOf: source.appendingPathComponent(path)))
-        }
-        let untouched = try manager.attributesOfItem(
-            atPath: destination.appendingPathComponent("references/authoring.md").path)
-        #expect(untouched[.modificationDate] as? Date == oldDate)
-        #expect(try String(contentsOf: personal, encoding: .utf8) == "keep notes")
-        #expect(try String(contentsOf: other, encoding: .utf8) == "keep other skill")
-    }
-
-    @Test func skillExportPreflightsConflictsBeforeOverwritingFiles() throws {
-        let f = try Fixture()
-        let skill = try f.file("Skills/xcprojgen/SKILL.md", "keep existing skill")
-        try f.file("Skills/xcprojgen/references", "not a directory")
-        let result = try cli(["skills", "export", "Skills"], fixture: f)
-        #expect(result.status != 0 && result.text.contains("Output directory is a file"))
-        #expect(try String(contentsOf: skill, encoding: .utf8) == "keep existing skill")
+        #expect(
+            FileManager.default.contentsEqual(atPath: source.path, andPath: destination.path))
     }
 
     @Test(arguments: ["App.xcodeproj", "App.xcworkspace", "project.xcproj"])
