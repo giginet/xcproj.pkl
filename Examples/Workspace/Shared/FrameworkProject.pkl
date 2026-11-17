@@ -13,7 +13,7 @@ open class UnitTests extends SwiftTarget {
   sources { new { path = "Tests" } }
   dependencies { new { target = "framework" } }
 }
-idNamespace = "com.example.\(name)"
+bundleIdPrefix = "com.example.\(name)"
 targets {
   ["framework"] = new Framework { name = module.name }
   ["tests"] = new UnitTests { name = "\(module.name)Tests" }

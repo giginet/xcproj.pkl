@@ -2,7 +2,7 @@ amends "@xcproj/Project.pkl"
 import "../Shared/Templates.pkl" as Shared
 
 name = "Advanced"
-idNamespace = "com.example.advanced"
+bundleIdPrefix = "com.example.advanced"
 
 // The alias, directory name, Package.name, product name, and module name differ.
 packages {

@@ -10,7 +10,10 @@ import "Internal/Validation.pkl" as Validation
 kind: "project" = "project"
 schemaVersion: Int(this == 2) = 2
 name: String(!isEmpty)
-idNamespace: String(!isEmpty) = name
+/// Prefix of each target's default `PRODUCT_BUNDLE_IDENTIFIER`, which is
+/// `<bundleIdPrefix>.<target name>`. Also seeds the generated object IDs, so
+/// changing it changes every generated ID in the project.
+bundleIdPrefix: String(!isEmpty) = name
 projectDir: String = "."
 configs: Mapping<String, "debug" | "release"> = new {
   ["Debug"] = "debug"

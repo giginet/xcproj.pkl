@@ -47,7 +47,7 @@ enum ProjectInitializer {
             import "\(templateImport)" as Templates
 
             name = "Core"
-            idNamespace = "com.example.core"
+            bundleIdPrefix = "com.example.core"
             targets {
               ["framework"] = new Templates.Framework {
                 name = "Core"
