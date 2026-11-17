@@ -28,7 +28,7 @@ open class SwiftTarget extends Target {
   settings { base { ["SWIFT_VERSION"] = "6.0" } }
 }
 
-idNamespace = "com.example.\(name)"
+bundleIdPrefix = "com.example.\(name)"
 targets {
   ["framework"] = new SwiftTarget {
     name = module.name

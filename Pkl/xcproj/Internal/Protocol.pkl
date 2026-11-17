@@ -1,5 +1,5 @@
 module xcproj.Protocol
-import "SchemeModel.pkl" as SchemeModel
+import "../Project.pkl" as Project
 
 typealias SettingValue = String | List<String>
 typealias Settings = Map<String, SettingValue>
@@ -22,7 +22,7 @@ class SchemeInput {
   name: String
   containerArtifactId: String
   ownerProjectKey: String?
-  definition: SchemeModel.Scheme
+  definition: Project.Scheme
 }
 class ProjectInput {
   key: String

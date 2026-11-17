@@ -1,9 +1,13 @@
 name: Set up Pkl
-description: Install a specified native Pkl CLI release and enable Pkl integration tests.
+description: Install a specified native Pkl CLI release, optionally with pkldoc.
 inputs:
   version:
     description: Pkl release version, such as 0.33.0.
     required: true
+  pkldoc:
+    description: Also install the native pkldoc CLI from the same release.
+    required: false
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -11,6 +15,7 @@ runs:
       shell: bash
       env:
         PKL_VERSION: ${{ inputs.version }}
+        INSTALL_PKLDOC: ${{ inputs.pkldoc }}
         GH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
@@ -20,30 +25,37 @@ runs:
         fi
         case "$RUNNER_OS/$RUNNER_ARCH" in
           macOS/ARM64)
-            asset=pkl-macos-aarch64
+            platform=macos-aarch64
             ;;
           Linux/X64)
-            asset=pkl-linux-amd64
+            platform=linux-amd64
             ;;
           *)
             printf 'Unsupported Pkl runner: %s/%s\n' "$RUNNER_OS" "$RUNNER_ARCH" >&2
             exit 1
             ;;
         esac
-        digest="$(gh api "repos/apple/pkl/releases/tags/$PKL_VERSION" \
-          --jq ".assets[] | select(.name == \"$asset\") | .digest")"
-        if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-          printf 'Missing or invalid SHA-256 digest for Pkl %s (%s)\n' "$PKL_VERSION" "$asset" >&2
-          exit 1
-        fi
-        checksum="${digest#sha256:}"
         install_dir="$RUNNER_TEMP/pkl-$PKL_VERSION"
         mkdir -p "$install_dir"
-        curl --fail --location --retry 3 \
-          "https://github.com/apple/pkl/releases/download/$PKL_VERSION/$asset" \
-          --output "$install_dir/pkl"
-        printf '%s  %s\n' "$checksum" "$install_dir/pkl" | shasum -a 256 --check
-        chmod +x "$install_dir/pkl"
-        "$install_dir/pkl" --version
+        tools=(pkl)
+        if [[ "$INSTALL_PKLDOC" == true ]]; then
+          tools+=(pkldoc)
+        fi
+        for tool in "${tools[@]}"; do
+          asset="$tool-$platform"
+          digest="$(gh api "repos/apple/pkl/releases/tags/$PKL_VERSION" \
+            --jq ".assets[] | select(.name == \"$asset\") | .digest")"
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            printf 'Missing or invalid SHA-256 digest for Pkl %s (%s)\n' "$PKL_VERSION" "$asset" >&2
+            exit 1
+          fi
+          checksum="${digest#sha256:}"
+          curl --fail --location --retry 3 \
+            "https://github.com/apple/pkl/releases/download/$PKL_VERSION/$asset" \
+            --output "$install_dir/$tool"
+          printf '%s  %s\n' "$checksum" "$install_dir/$tool" | shasum -a 256 --check
+          chmod +x "$install_dir/$tool"
+          "$install_dir/$tool" --version
+        done
         printf '%s\n' "$install_dir" >> "$GITHUB_PATH"
         printf 'PKL_EXEC=%s/pkl\n' "$install_dir" >> "$GITHUB_ENV"

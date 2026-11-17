@@ -1,13 +1,12 @@
 module xcproj.Snapshot
 import "pkl:reflect"
-import "ProjectModel.pkl" as Model
+import "../Project.pkl" as Model
 import "Protocol.pkl" as W
 import "Builtins.pkl" as B
 import "Projection.pkl" as Projection
 import "SchemaRender.pkl" as R
 import "Schemes.pkl" as Schemes
-import "SchemeModel.pkl" as SchemeModel
-import "WorkspaceModel.pkl" as WorkspaceModel
+import "../Workspace.pkl" as Workspace
 
 function ref(identifier: String, relation: String): W.PathBase = new { kind = "request"; id = identifier; location = relation }
 function uri(value: String): W.PathBase = new { kind = "uri"; uri = value }
@@ -28,8 +27,8 @@ function target(p: Model, prefix: String, k: String, t: Model.Target): W.TargetI
   kind = t.kind
   type = t.type
   platform = t.platform
-  id = t.id ?? B.stableId(p.idNamespace, "target", k)
-  productId = t.productId ?? B.stableId(p.idNamespace, "product", k)
+  id = t.id ?? B.stableId(p.bundleIdPrefix, "target", k)
+  productId = t.productId ?? B.stableId(p.bundleIdPrefix, "product", k)
   productName = B.productName(t)
   productFileType = B.productFileType(t)
   hasProduct = t.kind == "native" && t.product == null
@@ -54,7 +53,7 @@ function target(p: Model, prefix: String, k: String, t: Model.Target): W.TargetI
 
 function project(p: Model, k: String): W.ProjectInput = new {
   key = k
-  idNamespace = p.idNamespace
+  idNamespace = p.bundleIdPrefix
   sourcePathId = "\(projectId(k)):module"
   rootPathId = "\(projectId(k)):root"
   artifactId = projectId(k)
@@ -115,10 +114,10 @@ function single(p: Model): W.Snapshot = new {
   artifacts = List(artifact(projectId("project"), "project")) + Schemes.artifacts(schemes)
 }
 
-function workspace(label: String, directory: String, source: String, entries: Mapping<String, WorkspaceModel.WorkspaceProject>, schemeEntries: Mapping<String, SchemeModel.Scheme>): W.Snapshot =
+function workspace(label: String, directory: String, source: String, entries: Mapping<String, Workspace.WorkspaceProject>, schemeEntries: Mapping<String, Model.Scheme>): W.Snapshot =
   let (keys = entries.toMap().keys.toList().sort())
   let (generatedKeys = keys.filter((k) -> entries[k] is Model))
-  let (existingKeys = keys.filter((k) -> entries[k] is WorkspaceModel.ExistingProject))
+  let (existingKeys = keys.filter((k) -> entries[k] is Workspace.ExistingProject))
   new {
     kind = "workspace"
     rootArtifactId = "workspace"
@@ -128,7 +127,7 @@ function workspace(label: String, directory: String, source: String, entries: Ma
     })
     schemes = generatedKeys.flatMap((k) -> Schemes.projectEntries((entries[k] as Model).schemes, k, projectId(k))) + Schemes.workspaceEntries(schemeEntries)
     paths = generatedKeys.flatMap((k) -> projectPaths(entries[k] as Model, k)) + existingKeys.map((k) ->
-      path("\(projectId(k)):bundle", ref("workspace:root", "self"), (entries[k] as WorkspaceModel.ExistingProject).path, "directory", true, "\(k) existing project")
+      path("\(projectId(k)):bundle", ref("workspace:root", "self"), (entries[k] as Workspace.ExistingProject).path, "directory", true, "\(k) existing project")
     ) + List(
       path("workspace:module", uri(source), "", "file", true, "Workspace module"),
       path("workspace:root", ref("workspace:module", "parent"), directory, "directory", true, "workspaceDir"),

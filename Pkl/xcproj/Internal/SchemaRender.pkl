@@ -1,6 +1,6 @@
 /// Projection of typed authoring values to apple/xcode-project-format JSON keys.
 module xcproj.SchemaRender
-import "SchemaTypes.pkl" as S
+import "../Project.pkl" as S
 
 function namePath(value: S.NamePath): Any =
   if (value is String) value else value.toList().map((part) ->

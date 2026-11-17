@@ -6,9 +6,12 @@
 [![Xcode 27.2+](https://img.shields.io/badge/Xcode-27.2%2B-147EFB?logo=xcode&style=flat-square)](https://developer.apple.com/xcode/)
 [![Pkl 0.33+](https://img.shields.io/badge/Pkl-0.33%2B-blue?style=flat-square)](https://pkl-lang.org/)
 [![SwiftPM](https://img.shields.io/badge/SwiftPM-compatible-green?logo=swift&style=flat-square)](https://swift.org/package-manager/)
-[![Documentation](https://img.shields.io/badge/Documentation-available-green?style=flat-square)](./Pkl/xcproj/README.md)
+[![Documentation](https://img.shields.io/badge/Documentation-available-green?style=flat-square)](https://giginet.me/xcproj.pkl/)
 [![CLI Platform: macOS 14+](https://img.shields.io/badge/CLI%20Platform-macOS%2014%2B-lightgray?logo=apple&style=flat-square)](./Package.swift)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-darkgray?style=flat-square)](./LICENSE)
+
+> [!WARNING]
+> This project is under active development. APIs, the Pkl schema, and CLI behavior may change without notice.
 
 xcproj.pkl is a DSL for describing the `*.xcproj` JSON format. It lets you define Xcode projects using the [apple/pkl](https://github.com/apple/pkl) language.
 
@@ -24,7 +27,7 @@ For example, the following `Main.pkl` defines a framework and its test target. `
 amends "@xcproj/Project.pkl"
 
 name = "Core"
-idNamespace = "com.example.core"
+bundleIdPrefix = "com.example.core"
 
 targets {
   ["core"] {
@@ -148,7 +151,7 @@ amends "@xcproj/Project.pkl"
 import "Templates.pkl" as Templates
 
 name = "Demo"
-idNamespace = "com.example.demo"
+bundleIdPrefix = "com.example.demo"
 
 local framework: Templates.ExtensionSafeFramework = new {}
 
@@ -237,6 +240,8 @@ open Examples/MixedWorkspace/Mixed.xcworkspace
 
 ## Reference
 
+- [Pkl API reference (main)](https://giginet.me/xcproj.pkl/)
+- [CI and GitHub Pages setup](./Docs/CI.md)
 - [Pkl Language Reference](https://pkl-lang.org/main/current/language-reference/index.html)
 - [Pkl CLI Manual](https://pkl-lang.org/main/current/pkl-cli/index.html)
 - [Updating Your Xcode Project Configuration File Format (Apple Developer)](https://developer.apple.com/documentation/xcode/updating-your-xcode-project-configuration-file-format)

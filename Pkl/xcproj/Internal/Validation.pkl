@@ -1,10 +1,10 @@
 module xcproj.Validation
 import "pkl:reflect"
-import "ProjectModel.pkl" as Model
+import "../Project.pkl" as Model
 import "Protocol.pkl" as W
 import "Paths.pkl" as Paths
 import "Schemes.pkl" as Schemes
-import "WorkspaceModel.pkl" as WorkspaceModel
+import "../Workspace.pkl" as Workspace
 
 function check(condition: Boolean, message: String): Boolean = if (condition) true else throw(message)
 function name(value: String, context: String): Boolean =
@@ -74,7 +74,7 @@ function authorProject(p: Model): Boolean =
     }
   }).toList().every((v) -> v)
 
-function authorWorkspace(label: String, entries: Mapping<String, WorkspaceModel.WorkspaceProject>): Boolean =
+function authorWorkspace(label: String, entries: Mapping<String, Workspace.WorkspaceProject>): Boolean =
   name(label, "workspace.name") && check(!entries.isEmpty, "Workspace must contain at least one project") &&
   entries.toMap().every((k, p) -> check(!k.isEmpty, "Empty workspace project key") &&
     (if (p is Model) authorProject(p) else !p.path.isEmpty))

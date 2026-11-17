@@ -48,7 +48,7 @@ final class Fixture {
         return try file(
             path,
             "amends \(quoted(schema))\n" + imports.joined(separator: "\n")
-                + "\nname = \"Example\"\nidNamespace = \"com.example\"\n"
+                + "\nname = \"Example\"\nbundleIdPrefix = \"com.example\"\n"
                 + rest.joined(separator: "\n"))
     }
     func compile(_ body: String, outputDirectory: URL? = nil) throws -> GenerationPlan {

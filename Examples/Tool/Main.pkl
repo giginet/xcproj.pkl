@@ -1,7 +1,7 @@
 amends "@xcproj/Project.pkl"
 import "../Shared/Templates.pkl" as Shared
 name = "Tool"
-idNamespace = "com.example.tool"
+bundleIdPrefix = "com.example.tool"
 settings { base { ["OTHER_SWIFT_FLAGS"] = new Listing { "-DPROJECT" } } }
 targets {
   ["hello"] = new Shared.MacTool {

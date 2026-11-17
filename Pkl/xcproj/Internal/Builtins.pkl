@@ -1,5 +1,5 @@
 module xcproj.Builtins
-import "ProjectModel.pkl" as Model
+import "../Project.pkl" as Model
 import "Protocol.pkl" as Wire
 
 function stableId(namespace: String, kind: String, key: String): String =
@@ -53,7 +53,7 @@ function targetDefaults(p: Model, t: Model.Target): Wire.Settings =
     when (t.platform == "iOS") { ["TARGETED_DEVICE_FAMILY"] = "1,2" }
     when (!List("tool", "library.static", "library.dynamic", "metal-library").contains(t.type)) {
       ["GENERATE_INFOPLIST_FILE"] = if (t.infoPlist == null) "YES" else "NO"
-      ["PRODUCT_BUNDLE_IDENTIFIER"] = "\(p.idNamespace).\(t.name.replaceAll(Regex("[^A-Za-z0-9.-]"), "-"))"
+      ["PRODUCT_BUNDLE_IDENTIFIER"] = "\(p.bundleIdPrefix).\(t.name.replaceAll(Regex("[^A-Za-z0-9.-]"), "-"))"
     }
     when (List("framework", "framework.static").contains(t.type)) {
       ["DEFINES_MODULE"] = "YES"

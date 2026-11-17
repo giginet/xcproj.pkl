@@ -51,6 +51,6 @@ package dependencies. Use `xcrun xcodebuild` for build verification.
 - [Pkl authoring](references/authoring.md): target inheritance, settings mixins,
   dependencies, and schemes.
 - [Workspaces](references/workspaces.md): reusable Projects and existing project imports.
-- [Pkl API reference (main)](https://giginet.github.io/xcproj.pkl/)
+- [Pkl API reference (main)](https://giginet.me/xcproj.pkl/)
 - [Examples](https://github.com/giginet/xcproj.pkl/tree/main/Examples)
 - [Pkl language reference](https://pkl-lang.org/main/current/language-reference/index.html)

@@ -2,7 +2,7 @@ amends "@xcproj/Project.pkl"
 import "../Shared/Templates.pkl" as Shared
 
 name = "Demo"
-idNamespace = "com.example.demo"
+bundleIdPrefix = "com.example.demo"
 configFiles { ["Debug"] = "Config/Debug.xcconfig" }
 
 targets {

@@ -64,7 +64,7 @@ amends "@xcproj/Project.pkl"
 import "Templates.pkl" as Templates
 
 name = "Libraries"
-idNamespace = "com.example.libraries"
+bundleIdPrefix = "com.example.libraries"
 
 targets {
   ["core"] = new Templates.ExtensionSafeFramework { name = "Core" }
