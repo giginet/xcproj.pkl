@@ -84,7 +84,43 @@ targets {
 
 `@xcproj` refers to the dependency declared in `PklProject`. Change `platform` and `deploymentTarget` in `BaseTarget` to configure both targets. The project name determines the bundle name, `MyApp.xcodeproj`.
 
-`init` does not create source files or directories. To include an existing `Sources` directory, add `sources { new { path = "Sources" } }` to the appropriate target. Source paths are relative to `Project.pkl`.
+`init` creates configuration files only. The sample above has no `sources`, so it does not register any source files. Target names such as `MyApp` and `MyAppTests` do not automatically select matching directories.
+
+To register existing `MyApp` and `MyAppTests` directories, replace only the `targets` block with:
+
+```pkl
+targets {
+  ["framework"] = new Framework {
+    name = "MyApp"
+    sources { new { path = "MyApp" } }
+  }
+  ["tests"] = new UnitTests {
+    name = "MyAppTests"
+    sources { new { path = "MyAppTests" } }
+    dependencies { new { target = "framework" } }
+  }
+}
+```
+
+Each source entry defaults to `kind = "folder"`. Xcode tracks files in that directory and its subdirectories, assigning source files and resources to the target according to their file types. You do not need to list each file separately.
+
+Paths are relative to `projectDir`, which defaults to the directory containing `Project.pkl`. In this guide, the paths above refer to `MyApp/MyApp/` and `MyApp/MyAppTests/`. The referenced directories must exist before running `validate` or `generate`.
+
+For a different layout, such as `Sources/MyApp` and `Tests/MyAppTests` beside `Project.pkl`, use this `targets` block instead:
+
+```pkl
+targets {
+  ["framework"] = new Framework {
+    name = "MyApp"
+    sources { new { path = "Sources/MyApp" } }
+  }
+  ["tests"] = new UnitTests {
+    name = "MyAppTests"
+    sources { new { path = "Tests/MyAppTests" } }
+    dependencies { new { target = "framework" } }
+  }
+}
+```
 
 ### 6. Validate the Pkl project
 
@@ -108,53 +144,16 @@ This creates `MyApp/MyApp.xcodeproj`. Each generated `project.xcproj` is formatt
 (cd MyApp && open MyApp.xcodeproj)
 ```
 
-### Initialize a workspace
+### Agent skill
+
+Export the bundled [Agent Skills](https://agentskills.io/specification) instructions
+into your agent's skills directory:
 
 ```sh
-xcprojgen init MyWorkspace --type workspace
+xcprojgen skills export .agents/skills
 ```
 
-This also creates only `PklProject` and `Project.pkl`. The entry amends `@xcproj/Workspace.pkl` and defines the member project inline, alongside its target templates:
-
-```pkl
-amends "@xcproj/Workspace.pkl"
-import "@xcproj/Project.pkl" as X
-
-local open class BaseTarget extends X.Target {
-  platform = "iOS"
-  deploymentTarget = "17.0"
-}
-
-local class Framework extends BaseTarget { type = "framework" }
-local class UnitTests extends BaseTarget { type = "bundle.unit-test" }
-
-name = "Workspace"
-projects {
-  ["core"] = new X {
-    name = "Core"
-    bundleIdPrefix = "com.example.core"
-    targets {
-      ["framework"] = new Framework {
-        name = "Core"
-      }
-      ["tests"] = new UnitTests {
-        name = "CoreTests"
-        dependencies { new { target = "framework" } }
-      }
-    }
-  }
-}
-```
-
-Edit this `Project.pkl`, then run:
-
-```sh
-xcprojgen validate MyWorkspace
-xcprojgen generate MyWorkspace
-open MyWorkspace/Workspace.xcworkspace
-```
-
-The workspace and its `Core.xcodeproj` are generated in `MyWorkspace`. Source paths for inline projects are relative to this entry file; imported Project modules keep their own directories.
+## Advanced Usage
 
 ### Other CLI options
 
@@ -178,17 +177,6 @@ xcprojgen generate MyApp/Project.pkl
 Relative paths are resolved from the current working directory. To use another entry point, pass its `.pkl` file path directly.
 
 `validate [path]` uses the same input rules. `init [dir]` defaults to `--type project`; use `--type workspace` for a workspace entry.
-
-### Agent skill
-
-Export the bundled [Agent Skills](https://agentskills.io/specification) instructions
-into your agent's skills directory:
-
-```sh
-xcprojgen skills export .agents/skills
-```
-
-## Advanced Project Examples
 
 ### Target Template Inheritance
 
@@ -282,30 +270,21 @@ See [Examples/Shared/Settings.pkl](Examples/Shared/Settings.pkl) and
 [the example guide](Examples/README.md#composing-shared-settings) for this pattern
 in the runnable examples.
 
-### Generating a Workspace
-
-You can also concisely define a `*.xcworkspace` containing multiple Xcode projects. In addition to importing other Pkl files, you can include existing Xcode projects.
-
-The following example uses the configuration from [Examples/MixedWorkspace/Project.pkl](./Examples/MixedWorkspace/Project.pkl).
-
-```pkl
-amends "@xcproj/Workspace.pkl"
-import "../Tool/Project.pkl" as Tool
-
-name = "Mixed"
-projects {
-  ["tool"] = Tool
-  ["legacy"] = module.importXcodeproj("Legacy.xcodeproj")
-}
-```
-
-Run the following commands from the repository root to generate `Mixed.xcworkspace` and `Tool.xcodeproj` from the imported Pkl project. The existing `Legacy.xcodeproj` is added as a reference.
+### Initialize a Workspace
 
 ```sh
-swift run xcprojgen validate Examples/MixedWorkspace
-swift run xcprojgen generate Examples/MixedWorkspace
-open Examples/MixedWorkspace/Mixed.xcworkspace
+xcprojgen init MyWorkspace --type workspace
 ```
+
+This creates `PklProject` and a `Project.pkl` that amends `@xcproj/Workspace.pkl`, with the target templates and member project defined inline. Edit `Project.pkl`, then run:
+
+```sh
+xcprojgen validate MyWorkspace
+xcprojgen generate MyWorkspace
+open MyWorkspace/Workspace.xcworkspace
+```
+
+See [Examples/Workspace](./Examples/Workspace/Project.pkl) for a workspace with multiple Pkl projects, and [Examples/MixedWorkspace](./Examples/MixedWorkspace/Project.pkl) for importing existing Xcode projects. The [example guide](./Examples/README.md) includes commands to generate and build them.
 
 ## Reference
 
