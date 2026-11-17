@@ -54,25 +54,31 @@ a release of both. Use a major version for breaking CLI or public Pkl API
 changes, a minor version for compatible additions, and a patch for compatible
 fixes. Before 1.0, use a minor version for breaking changes.
 
-The release tag is the source of truth. The workflow passes it to the Pkl
-packager and writes it into the staged CLI resource bundle. Thus `--version`,
-the dependency created by `init`, package metadata, and the Homebrew formula
-agree. No source version bump or formula edit is required for them; only the
-API documentation's displayed version is set by hand, as described below.
-`Pkl/xcproj/Internal/Version.txt` is only the default version for local builds
-and local packaging; release packaging does not modify the checkout or build
-outputs. Existing consumers should update their `PklProject` dependency along
-with the CLI; upgrades do not edit their projects automatically.
+The release tag determines the published version. The workflow passes it to the
+Pkl packager and writes it into the staged CLI resource bundle, so the released
+`--version`, the dependency created by `init`, package metadata, and the
+Homebrew formula always agree with the tag, whatever the sources say. Release
+packaging does not modify the checkout or build outputs.
+
+The sources keep their own copy for everything built outside that workflow.
+`Pkl/xcproj/Internal/Version.txt` is the version of source builds and local
+packaging, and `Pkl/xcproj/doc-package-info.pkl` is the version shown on the API
+reference site. Maintainers set both to the new version in a preparation commit
+before tagging, so the tagged commit reports the version it was released as.
+The formula is never edited by hand. Existing consumers should update their
+`PklProject` dependency along with the CLI; upgrades do not edit their projects
+automatically.
 
 ### Maintainer steps
 
 Agents can follow the same steps with the [`release` skill](../.agents/skills/release/SKILL.md),
 which is also linked from `.claude/skills`.
 
-1. Merge the intended changes into `main`, including setting `version` in
-   `Pkl/xcproj/doc-package-info.pkl` to the version being released, and wait
-   for CI to pass. This documentation version is the only version edited by
-   hand.
+1. Merge the intended changes into `main`, then land a preparation commit that
+   sets the new version in `Pkl/xcproj/Internal/Version.txt` and
+   `Pkl/xcproj/doc-package-info.pkl`, regenerates
+   `Examples/PklProject.deps.json` with `pkl project resolve Examples`, and
+   updates the versions in `Pkl/xcproj/README.md`. Wait for CI to pass on it.
 2. Publish a **stable** GitHub Release from that commit using an unprefixed tag
    such as `0.1.0`. For example, with the tested commit SHA:
 

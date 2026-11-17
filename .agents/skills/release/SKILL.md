@@ -41,23 +41,42 @@ git log --oneline "$(git describe --tags --abbrev=0 2>/dev/null)"..origin/main
 
 Propose the version with a short summary of the changes and wait for confirmation.
 
-Do not edit `Pkl/xcproj/Internal/Version.txt` or `Formula/xcprojgen.rb` to bump
-the version. The tag is the only source of the CLI and package version; the
-documentation version in step 3 is the one file to update by hand.
+## 3. Prepare the release commit
 
-## 3. Update the documentation version
+The release workflow stamps the tag into the archive it builds, but the sources
+keep their own copy of the version. Update it before tagging so that the tagged
+commit, source builds, and the API reference all report the version being
+released.
 
-The API reference site is built from `main` and shows the version written in
-`Pkl/xcproj/doc-package-info.pkl`, which the release workflow does not touch.
-Set it to the version being released:
+1. `Pkl/xcproj/Internal/Version.txt`: set to `X.Y.Z`. Source builds read it for
+   `xcprojgen --version`, for the package that `xcprojgen init` pins, and as the
+   default version of the Pkl package.
+2. `Pkl/xcproj/doc-package-info.pkl`: set `version = "X.Y.Z"`. The API reference
+   site is built from `main` and shows this value.
+3. Regenerate the Examples' lock file, which records the package version:
 
-```pkl
-version = "X.Y.Z"
+   ```sh
+   pkl project resolve Examples
+   ```
+
+4. `Pkl/xcproj/README.md`: update the version in the consumer example's package
+   URI and in the packaging output paths.
+
+Do not edit `Formula/xcprojgen.rb`; the workflow generates it from the published
+archive. The example versions in `Docs/CI.md` and the version argument in
+`.github/workflows/pkl-tests.yml` are placeholders and stay as they are.
+
+Check the result, then commit:
+
+```sh
+swift run xcprojgen --version      # prints X.Y.Z
+git grep -n '<previous version>'   # only placeholders and Formula/ should remain
+git commit -am "Prepare X.Y.Z"
 ```
 
-Commit this to `main` (directly, or through a pull request if the maintainer
-prefers), then repeat step 1 for the new commit: the release is published from
-the commit that contains this change, after its CI has passed.
+Land the commit on `main`, directly or through a pull request as the maintainer
+prefers. Then repeat step 1 for it: the release is published from this commit,
+after its CI has passed.
 
 ## 4. Check packaging locally (optional)
 
