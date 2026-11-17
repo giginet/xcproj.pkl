@@ -2,9 +2,9 @@
 class Xcprojgen < Formula
   desc "Generate Xcode projects and workspaces from Pkl"
   homepage "https://github.com/giginet/xcproj.pkl"
-  url "https://github.com/giginet/xcproj.pkl/releases/download/0.1.0/xcprojgen-0.1.0-macos-universal.tar.gz"
-  version "0.1.0"
-  sha256 "2c8b6b3c5610db256dcc683721023501014a09a2fcbe6704df423d40ad55eeb0"
+  url "https://github.com/giginet/xcproj.pkl/releases/download/0.2.0/xcprojgen-0.2.0-macos-universal.tar.gz"
+  version "0.2.0"
+  sha256 "da1e16858326c6f8a93c6dc8cd8c70fddae5da4e0a3c55843fffe3af26661281"
   license "Apache-2.0"
 
   depends_on :macos
