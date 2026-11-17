@@ -32,7 +32,7 @@ This site follows `main`, rather than retaining published release versions. Pkld
 
 Pull requests only build and upload the `github-pages` artifact. Deployment runs after a successful build on `main`, using the `github-pages` environment and job-scoped `pages: write` and `id-token: write` permissions. Manual runs on another branch only build the documentation. Running deployments are not cancelled by newer pushes.
 
-Before the first deployment, open **Settings → Pages → Build and deployment → Source** and select **GitHub Actions**. If the `github-pages` environment restricts deployments, allow `main`. After merging, the push to `main` deploys the site; use **Actions → Pkl API documentation → Run workflow** on `main` to retry after configuring Pages. No personal access token or Pages branch is needed. The deployment job reports the site URL, normally <https://giginet.github.io/xcproj.pkl/>. Pages availability and site visibility are controlled by the repository's GitHub plan and Pages settings.
+Before the first deployment, open **Settings → Pages → Build and deployment → Source** and select **GitHub Actions**. If the `github-pages` environment restricts deployments, allow `main`. After merging, the push to `main` deploys the site; use **Actions → Pkl API documentation → Run workflow** on `main` to retry after configuring Pages. No personal access token or Pages branch is needed. The deployment job reports the site URL, currently <https://giginet.me/xcproj.pkl/>. Pages availability and site visibility are controlled by the repository's GitHub plan and Pages settings.
 
 To build locally with pkldoc 0.33.0 installed:
 

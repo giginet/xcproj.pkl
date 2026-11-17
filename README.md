@@ -6,7 +6,7 @@
 [![Xcode 27.2+](https://img.shields.io/badge/Xcode-27.2%2B-147EFB?logo=xcode&style=flat-square)](https://developer.apple.com/xcode/)
 [![Pkl 0.33+](https://img.shields.io/badge/Pkl-0.33%2B-blue?style=flat-square)](https://pkl-lang.org/)
 [![SwiftPM](https://img.shields.io/badge/SwiftPM-compatible-green?logo=swift&style=flat-square)](https://swift.org/package-manager/)
-[![Documentation](https://img.shields.io/badge/Documentation-available-green?style=flat-square)](./Pkl/xcproj/README.md)
+[![Documentation](https://img.shields.io/badge/Documentation-available-green?style=flat-square)](https://giginet.me/xcproj.pkl/)
 [![CLI Platform: macOS 14+](https://img.shields.io/badge/CLI%20Platform-macOS%2014%2B-lightgray?logo=apple&style=flat-square)](./Package.swift)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-darkgray?style=flat-square)](./LICENSE)
 
@@ -186,7 +186,7 @@ open Examples/MixedWorkspace/Mixed.xcworkspace
 
 ## Reference
 
-- [Pkl API reference (main)](https://giginet.github.io/xcproj.pkl/)
+- [Pkl API reference (main)](https://giginet.me/xcproj.pkl/)
 - [CI and GitHub Pages setup](./Docs/CI.md)
 - [Pkl Language Reference](https://pkl-lang.org/main/current/language-reference/index.html)
 - [Pkl CLI Manual](https://pkl-lang.org/main/current/pkl-cli/index.html)
