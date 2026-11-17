@@ -26,6 +26,7 @@ let package = Package(
                 .copy("xcproj/Internal"),
                 .copy("xcproj/Project.pkl"),
                 .copy("xcproj/Workspace.pkl"),
+                .copy("Skills"),
             ]
         ),
         .target(

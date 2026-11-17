@@ -34,6 +34,27 @@ private func executable(_ path: URL) throws {
 }
 
 struct CLITests {
+    @Test func skillsExportReportsContentChanges() throws {
+        let f = try Fixture()
+        let arguments = ["skills", "export", "Agent Skills"]
+        let environment = ["PKL_EXEC": "/missing/pkl", "DEVELOPER_DIR": "/missing/Xcode.app"]
+        let created = try cli(arguments, fixture: f, environment: environment)
+        try #require(created.status == 0 && created.text.hasPrefix("Exported"), "\(created.text)")
+        let source = repository.appendingPathComponent("Pkl/Skills/xcprojgen")
+        let destination = f.root.appendingPathComponent("Agent Skills/xcprojgen")
+        #expect(
+            FileManager.default.contentsEqual(atPath: source.path, andPath: destination.path))
+
+        let unchanged = try cli(arguments, fixture: f, environment: environment)
+        #expect(unchanged.status == 0 && unchanged.text.hasPrefix("Unchanged"), "\(unchanged.text)")
+
+        try f.file("Agent Skills/xcprojgen/SKILL.md", "outdated skill")
+        let updated = try cli(arguments, fixture: f, environment: environment)
+        #expect(updated.status == 0 && updated.text.hasPrefix("Updated"), "\(updated.text)")
+        #expect(
+            FileManager.default.contentsEqual(atPath: source.path, andPath: destination.path))
+    }
+
     @Test(arguments: ["App.xcodeproj", "App.xcworkspace", "project.xcproj"])
     func validateRequiresPklInput(_ path: String) throws {
         let f = try Fixture()

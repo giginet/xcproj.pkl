@@ -110,6 +110,15 @@ Relative paths are resolved from the current working directory. To use another e
 
 `generate` formats each generated `project.xcproj` with `xcrun xcprojformatter` before saving it. Repeated generation leaves unchanged files untouched. Existing projects imported into a workspace are not formatted. Xcode tools use the installation selected by `xcode-select` or `DEVELOPER_DIR`; `doctor` checks that both `xcrun xcodeproj` and `xcrun xcprojformatter` can run. If either tool is unavailable, install Xcode 27.2 or later and select that installation.
 
+### Agent skill
+
+Export the bundled [Agent Skills](https://agentskills.io/specification) instructions
+into your agent's skills directory:
+
+```sh
+xcprojgen skills export .agents/skills
+```
+
 ## Advanced Project Examples
 
 ### Target Template Inheritance
@@ -158,6 +167,51 @@ targets {
 ```
 
 `extends` defines class inheritance, while `(framework) { ... }` amends an object. In this example, the targets inherit the shared settings and reference `Sources/DemoCore` and `Sources/DemoNetworking`, respectively.
+
+### Combining Settings with Mixins
+
+For XcodeGen-style settings groups, use Pkl's built-in
+[mixins](https://pkl-lang.org/main/current/language-reference/index.html#mixins).
+Define independent, typed settings changes in `Settings.pkl`:
+
+```pkl
+import "@xcproj/Project.pkl" as X
+
+swift6: Mixin<X.Settings> = new {
+  base { ["SWIFT_VERSION"] = "6.0" }
+  configs { ["Debug"] { base { ["ENABLE_TESTABILITY"] = "YES" } } }
+}
+
+warnings: Mixin<X.Settings> = new {
+  base { ["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES" }
+  configs { ["Debug"] { base { ["ONLY_ACTIVE_ARCH"] = "YES" } } }
+}
+
+extensionSafe: Mixin<X.Settings> = new {
+  base { ["APPLICATION_EXTENSION_API_ONLY"] = "YES" }
+}
+```
+
+In `Templates.pkl` above, add `import "Settings.pkl" as Common` alongside the
+other imports, and replace `Framework`'s `settings` definition with:
+
+```pkl
+settings = super.settings |> Common.swift6 |> Common.warnings |> Common.extensionSafe
+```
+
+`super.settings` preserves the parent template's settings. Use `new X.Settings {}`
+instead when starting from empty settings. The same mixins work on project or
+target settings, and templates can select any combination.
+
+Mixins apply left to right; a later assignment to the same key wins. Here both
+Debug settings survive because each mixin amends `configs["Debug"].base`.
+Use `base { ... }` and `configs { ... }` to retain earlier entries;
+`base = new Mapping { ... }` replaces the mapping. A target can further override
+the result with `settings { base { ["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "NO" } }`.
+
+See [Examples/Shared/Settings.pkl](Examples/Shared/Settings.pkl) and
+[the example guide](Examples/README.md#composing-shared-settings) for this pattern
+in the runnable examples.
 
 ### Generating a Workspace
 

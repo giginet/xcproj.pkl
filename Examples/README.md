@@ -72,6 +72,32 @@ PKL_EXEC="$(command -v pkl)" bash Scripts/smoke-test.sh
 
 The framework and iOS scripts compile their test bundles; they do not execute those bundles.
 
+## Composing shared settings
+
+[Shared/Settings.pkl](Shared/Settings.pkl) defines independent
+`Mixin<X.Settings>` values for Swift 6, warnings, and extension safety. Its
+`compiler` object combines two of them for reuse by the tool, app, framework,
+and test templates:
+
+```pkl
+compiler: X.Settings = new X.Settings {} |> swift6 |> warnings
+```
+
+Both mixins amend `configs["Debug"].base`, so `ENABLE_TESTABILITY` and
+`ONLY_ACTIVE_ARCH` are retained together. Later assignments to the same key win.
+The `ExtensionSafeFramework` template in [Shared/Templates.pkl](Shared/Templates.pkl)
+adds the third mixin to its inherited settings:
+
+```pkl
+settings = super.settings |> Common.extensionSafe
+```
+
+This retains the compiler settings and target-specific bundle identifier while
+adding `APPLICATION_EXTENSION_API_ONLY = YES`. The iOS example below uses all
+three settings groups for `DemoCore` and `DemoNotifications`, while
+`DemoNetworking` uses only Swift 6 and warnings. The existing Tool, Workspace,
+and iOS smoke tests exercise these shared settings.
+
 ## Swift 6 and a Notification Service Extension
 
 `Swift6Framework` in `Shared/Templates.pkl` extends `Target` from the public schema. The `compiler` settings imported from `Shared/Settings.pkl` set `SWIFT_VERSION = "6.0"`, so the generated frameworks use Swift 6 language mode.

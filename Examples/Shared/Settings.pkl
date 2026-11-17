@@ -1,15 +1,25 @@
 module examples.Settings
-import "@xcproj/Project.pkl"
-warnings: Project.Settings = new {
-  base {
-    ["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
-    ["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
-  }
-}
-compiler = (warnings) {
+import "@xcproj/Project.pkl" as X
+
+swift6: Mixin<X.Settings> = new {
   base {
     ["SWIFT_VERSION"] = "6.0"
     ["OTHER_SWIFT_FLAGS"] = new Listing { "$(inherited)"; "-DTEAM" }
   }
   configs { ["Debug"] { base { ["ENABLE_TESTABILITY"] = "YES" } } }
 }
+
+warnings: Mixin<X.Settings> = new {
+  base {
+    ["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+    ["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+  }
+  configs { ["Debug"] { base { ["ONLY_ACTIVE_ARCH"] = "YES" } } }
+}
+
+extensionSafe: Mixin<X.Settings> = new {
+  base { ["APPLICATION_EXTENSION_API_ONLY"] = "YES" }
+}
+
+// A reusable combination for tools, apps, frameworks, and tests.
+compiler: X.Settings = new X.Settings {} |> swift6 |> warnings

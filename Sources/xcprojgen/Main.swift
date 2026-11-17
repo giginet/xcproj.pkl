@@ -8,7 +8,7 @@ struct Xcprojgen: ParsableCommand {
         commandName: "xcprojgen",
         abstract: "Create, validate, and generate Pkl-based Xcode projects and workspaces.",
         version: ToolDefaults.version,
-        subcommands: [Initialize.self, Validate.self, Generate.self, Doctor.self]
+        subcommands: [Initialize.self, Validate.self, Generate.self, Doctor.self, Skills.self]
     )
 }
 
