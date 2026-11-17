@@ -1,6 +1,6 @@
 /// Freeze the typed authoring model into Xcode-shaped JSON before the host observes paths.
 module xcproj.Projection
-import "ProjectModel.pkl" as M
+import "../Project.pkl" as M
 import "SchemaRender.pkl" as R
 
 function packageIdentity(package: M.SwiftPackage): String =

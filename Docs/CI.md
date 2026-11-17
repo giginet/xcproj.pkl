@@ -40,8 +40,7 @@ To build locally with pkldoc 0.33.0 installed:
 pkldoc --no-symlinks --output-dir dist/pkldoc \
   --property "sourceRef=$(git rev-parse HEAD)" \
   Docs/pkldoc/docsite-info.pkl Pkl/xcproj/doc-package-info.pkl \
-  Pkl/xcproj/Project.pkl Pkl/xcproj/Workspace.pkl \
-  Pkl/xcproj/Internal/{ProjectModel,SchemaTypes,SchemeModel,WorkspaceModel}.pkl
+  Pkl/xcproj/Project.pkl Pkl/xcproj/Workspace.pkl
 python3 -m http.server --directory dist/pkldoc 8000
 ```
 

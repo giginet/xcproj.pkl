@@ -3,34 +3,35 @@ import "Project.pkl"
 import "pkl:reflect"
 import "Internal/Snapshot.pkl" as Snapshot
 import "Internal/Validation.pkl" as Validation
-import "Internal/SchemeModel.pkl" as SchemeModel
-import "Internal/WorkspaceModel.pkl" as WorkspaceModel
 
-open class ExistingProject extends WorkspaceModel.ExistingProject {}
-typealias WorkspaceProject = *Project | WorkspaceModel.ExistingProject
+/// A read-only workspace member. Relative paths are anchored at workspaceDir.
+open class ExistingProject {
+  path: String(!isEmpty && (endsWith(".xcodeproj") || endsWith(".xcodeproj/")))
+}
+typealias WorkspaceProject = *Project | ExistingProject
 
 /// Reference an existing .xcodeproj without converting or modifying its contents.
 /// Relative paths are resolved against workspaceDir, including with --output-dir.
 /// In an amended workspace, use `projects { ["key"] = module.importXcodeproj("App.xcodeproj") }`.
 function importXcodeproj(value: String): ExistingProject = new { path = value }
 
-open class Scheme extends SchemeModel.Scheme {}
-open class BuildAction extends SchemeModel.BuildAction {}
-open class BuildTarget extends SchemeModel.BuildTarget {}
-open class RunAction extends SchemeModel.RunAction {}
-open class TestAction extends SchemeModel.TestAction {}
-open class TestTarget extends SchemeModel.TestTarget {}
-open class ProfileAction extends SchemeModel.ProfileAction {}
-open class AnalyzeAction extends SchemeModel.AnalyzeAction {}
-open class ArchiveAction extends SchemeModel.ArchiveAction {}
-open class ExecutionAction extends SchemeModel.ExecutionAction {}
+typealias Scheme = Project.Scheme
+typealias BuildAction = Project.BuildAction
+typealias BuildTarget = Project.BuildTarget
+typealias RunAction = Project.RunAction
+typealias TestAction = Project.TestAction
+typealias TestTarget = Project.TestTarget
+typealias ProfileAction = Project.ProfileAction
+typealias AnalyzeAction = Project.AnalyzeAction
+typealias ArchiveAction = Project.ArchiveAction
+typealias ExecutionAction = Project.ExecutionAction
 
 kind: "workspace" = "workspace"
 schemaVersion: Int(this == 2) = 2
 name: String(!isEmpty)
 workspaceDir: String = "."
 projects: Mapping<String, WorkspaceProject>
-schemes: Mapping<String, SchemeModel.Scheme>
+schemes: Mapping<String, Scheme>
 
 output {
   renderer = new JsonRenderer {}

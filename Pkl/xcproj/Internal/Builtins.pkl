@@ -1,5 +1,5 @@
 module xcproj.Builtins
-import "ProjectModel.pkl" as Model
+import "../Project.pkl" as Model
 import "Protocol.pkl" as Wire
 
 function stableId(namespace: String, kind: String, key: String): String =

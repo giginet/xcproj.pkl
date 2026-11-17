@@ -1,6 +1,6 @@
 module xcproj.Schemes
 import "pkl:xml"
-import "SchemeModel.pkl" as M
+import "../Project.pkl" as M
 import "Protocol.pkl" as W
 import "Paths.pkl" as P
 
