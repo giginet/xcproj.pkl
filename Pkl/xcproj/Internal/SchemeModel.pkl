@@ -1,6 +1,6 @@
 /// Shared Xcode scheme configuration. Target references use target keys in projects
 /// and project-key/target-key in workspaces.
-module xcproj.SchemeModel
+module xcproj.Internal.SchemeModel
 
 open class ExecutionAction {
   title: String = "Run Script"

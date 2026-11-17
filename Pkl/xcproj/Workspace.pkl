@@ -11,7 +11,7 @@ typealias WorkspaceProject = *Project | WorkspaceModel.ExistingProject
 
 /// Reference an existing .xcodeproj without converting or modifying its contents.
 /// Relative paths are resolved against workspaceDir, including with --output-dir.
-/// In an amended workspace, use projects { ["key"] = module.importXcodeproj("App.xcodeproj") }.
+/// In an amended workspace, use `projects { ["key"] = module.importXcodeproj("App.xcodeproj") }`.
 function importXcodeproj(value: String): ExistingProject = new { path = value }
 
 open class Scheme extends SchemeModel.Scheme {}

@@ -1,0 +1,7 @@
+/// API reference for xcproj.pkl, a Pkl DSL for Xcode projects and workspaces.
+///
+/// See the [getting started guide](https://github.com/giginet/xcproj.pkl#usage)
+/// for package installation and the xcprojgen CLI.
+amends "pkl:DocsiteInfo"
+
+title = "xcproj.pkl"

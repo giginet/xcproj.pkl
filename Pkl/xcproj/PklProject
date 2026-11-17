@@ -10,5 +10,5 @@ package {
   sourceCode = "https://github.com/giginet/xcproj.pkl"
   sourceCodeUrlScheme = "\(sourceCode)/blob/\(version)/Pkl/xcproj%{path}#L%{line}-L%{endLine}"
   apiTests { "tests/ApiTests.pkl" }
-  exclude { "tests/**" }
+  exclude { "tests/**"; "doc-package-info.pkl" }
 }

@@ -18,7 +18,7 @@ let package = Package(
             path: "Pkl",
             exclude: [
                 "xcproj/PklProject", "xcproj/Project.pkl", "xcproj/Workspace.pkl",
-                "xcproj/README.md",
+                "xcproj/README.md", "xcproj/doc-package-info.pkl",
                 "xcproj/tests",
             ],
             sources: ["RuntimeResources.swift"],
