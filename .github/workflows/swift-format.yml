@@ -24,4 +24,7 @@ jobs:
           persist-credentials: false
       - name: Check all tracked Swift files
         shell: bash
-        run: git ls-files -z '*.swift' | xargs -0 swift format lint --configuration .swift-format --strict
+        run: |
+          # The container runs as a different user than the checkout owner.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git ls-files -z '*.swift' | xargs -0 swift format lint --configuration .swift-format --strict
