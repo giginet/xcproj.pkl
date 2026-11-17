@@ -186,6 +186,8 @@ open Examples/MixedWorkspace/Mixed.xcworkspace
 
 ## Reference
 
+- [Pkl API reference (main)](https://giginet.github.io/xcproj.pkl/)
+- [CI and GitHub Pages setup](./Docs/CI.md)
 - [Pkl Language Reference](https://pkl-lang.org/main/current/language-reference/index.html)
 - [Pkl CLI Manual](https://pkl-lang.org/main/current/pkl-cli/index.html)
 - [Updating Your Xcode Project Configuration File Format (Apple Developer)](https://developer.apple.com/documentation/xcode/updating-your-xcode-project-configuration-file-format)
