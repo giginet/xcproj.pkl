@@ -110,13 +110,13 @@ This creates `MyApp.xcodeproj` in the current directory. Each generated `project
 open MyApp.xcodeproj
 ```
 
-### Agent skill
+## Agent Skill
 
 Export the bundled [Agent Skills](https://agentskills.io/specification) instructions
 into your agent's skills directory:
 
 ```sh
-xcprojgen skills export .agents/skills
+xcprojgen skills export ~/.agents/skills
 ```
 
 ## Advanced Usage
