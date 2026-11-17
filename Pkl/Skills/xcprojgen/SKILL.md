@@ -16,8 +16,8 @@ Skip synchronization when editing this skill's sources in the xcproj.pkl reposit
 
 ## Choose the entry point
 
-- `xcprojgen generate` uses `Main.pkl` in the current directory.
-- `xcprojgen generate <dir>` uses `<dir>/Main.pkl`.
+- `xcprojgen generate` uses `Project.pkl` in the current directory.
+- `xcprojgen generate <dir>` uses `<dir>/Project.pkl`.
 - `xcprojgen generate <file.pkl>` uses that module directly.
 - `validate` accepts the same inputs.
 
@@ -31,11 +31,15 @@ Run `xcprojgen doctor` to check Pkl and Xcode tools. For a new configuration,
 choose a project or workspace scaffold:
 
 ```sh
-xcprojgen init MyLibrary --type project
+xcprojgen init
+xcprojgen init MyLibrary
 xcprojgen init MyWorkspace --type workspace
 ```
 
-Edit the generated Pkl files and sources, then validate and generate:
+`init` defaults to a project in the current directory. It creates only `PklProject`
+and `Project.pkl`, with target templates and project definitions in the entry file.
+Workspace scaffolds define their member projects inline. Add references to your
+existing sources in `Project.pkl`, then validate and generate:
 
 ```sh
 xcprojgen validate MyLibrary

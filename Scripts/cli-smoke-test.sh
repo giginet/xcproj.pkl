@@ -28,12 +28,20 @@ chmod +x "$scratch/pkl"
 
 for type in workspace project; do
   root="$scratch/My $type"
-  "$cli" init "$root" --type "$type"
+  if [[ "$type" == project ]]; then
+    mkdir "$root"
+    (cd "$root" && "$cli" init)
+  else
+    "$cli" init "$root" --type workspace
+  fi
+  test "$(find "$root" -type f | wc -l | tr -d ' ')" = 2
+  test -f "$root/PklProject"
+  test -f "$root/Project.pkl"
   "$cli" validate "$root" --pkl "$scratch/pkl"
   "$cli" generate "$root" --pkl "$scratch/pkl" --output-dir "$scratch/Output $type"
   "$cli" generate "$root" --pkl "$scratch/pkl" --output-dir "$scratch/Output $type" | grep -q '^Unchanged'
 done
 test -f "$scratch/Output workspace/Workspace.xcworkspace/contents.xcworkspacedata"
-test -f "$scratch/My workspace/Projects/Core/Core.xcodeproj/project.xcproj"
+test -f "$scratch/My workspace/Core.xcodeproj/project.xcproj"
 test -f "$scratch/Output project/Core.xcodeproj/project.xcproj"
 echo "CLI smoke test passed"

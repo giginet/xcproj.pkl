@@ -1,6 +1,6 @@
 # Examples
 
-Each example uses `Main.pkl` as its entry point. The shared `PklProject` references `Pkl/xcproj` in this checkout as a local dependency, so the examples work before a package is published on GitHub Releases. The CLI runs `pkl project resolve` to resolve dependencies.
+Each example uses `Project.pkl` as its entry point. The shared `PklProject` references `Pkl/xcproj` in this checkout as a local dependency, so the examples work before a package is published on GitHub Releases. The CLI runs `pkl project resolve` to resolve dependencies.
 
 Run these commands from the repository root:
 
@@ -21,11 +21,11 @@ swift run xcprojgen generate Examples/iOS --output-dir /tmp/xcprojgen-ios
 
 ## Mixing generated and existing projects
 
-`MixedWorkspace/Main.pkl` combines the Pkl project in `Tool/Main.pkl` with the checked-in legacy `MixedWorkspace/Legacy.xcodeproj`:
+`MixedWorkspace/Project.pkl` combines the Pkl project in `Tool/Project.pkl` with the checked-in legacy `MixedWorkspace/Legacy.xcodeproj`:
 
 ```pkl
 amends "@xcproj/Workspace.pkl"
-import "../Tool/Main.pkl" as Tool
+import "../Tool/Project.pkl" as Tool
 
 name = "Mixed"
 projects {
@@ -103,7 +103,7 @@ and iOS smoke tests exercise these shared settings.
 
 `Swift6Framework` in `Shared/Templates.pkl` extends `Target` from the public schema. The `compiler` settings imported from `Shared/Settings.pkl` set `SWIFT_VERSION = "6.0"`, so the generated frameworks use Swift 6 language mode.
 
-`ExtensionSafeFramework extends Swift6Framework` adds `APPLICATION_EXTENSION_API_ONLY = YES`. `iOS/Main.pkl` uses these classes to create the following six targets:
+`ExtensionSafeFramework extends Swift6Framework` adds `APPLICATION_EXTENSION_API_ONLY = YES`. `iOS/Project.pkl` uses these classes to create the following six targets:
 
 | Target | Template | Dependencies |
 |---|---|---|

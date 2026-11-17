@@ -1,6 +1,6 @@
 # Swift Package, Build Scripts, and a Shared Scheme
 
-`Main.pkl` generates a macOS command-line tool that links a library from a local Swift package. It extends `MacTool` from `../Shared/Templates.pkl` to reuse the Swift 6 settings and source directory configuration.
+`Project.pkl` generates a macOS command-line tool that links a library from a local Swift package. It extends `MacTool` from `../Shared/Templates.pkl` to reuse the Swift 6 settings and source directory configuration.
 
 ```sh
 swift run xcprojgen generate Examples/Advanced --output-dir /tmp/xcprojgen-advanced

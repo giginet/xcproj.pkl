@@ -60,17 +60,22 @@ func entryModule(_ path: URL) throws -> URL {
 struct Initialize: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "init", abstract: "Create a Pkl project with an xcproj package dependency.")
-    @Argument(help: "Directory to initialize. Existing files are never overwritten.") var dir:
-        String
-    @Option(name: .customLong("type"), help: "Scaffold type: workspace (default) or project.")
-    var projectType: InitializationType = .workspace
+    @Argument(
+        help:
+            "Directory to initialize. Defaults to the current directory. Existing files are never overwritten."
+    )
+    var dir: String = "."
+    @Option(name: .customLong("type"), help: "Scaffold type: project (default) or workspace.")
+    var projectType: InitializationType = .project
 
     mutating func run() throws {
         let destination = URL(fileURLWithPath: dir).standardizedFileURL
         try ProjectInitializer.write(to: destination, type: projectType)
         print("Initialized \(destination.path)")
         print("Package dependency: \(ToolDefaults.packageURI)")
-        print("Next: run 'xcprojgen doctor', then 'xcprojgen generate <dir>'.")
+        print(
+            "Next: edit Project.pkl, then run 'xcprojgen validate' and 'xcprojgen generate' in the initialized directory."
+        )
         print(
             "validate/generate resolve package dependencies; the configured GitHub Release must be accessible."
         )
@@ -82,7 +87,8 @@ struct Generate: ParsableCommand {
         abstract:
             "Resolve dependencies and generate the project or workspace defined by a Pkl entry.")
     @Argument(
-        help: "Directory containing Main.pkl, or a .pkl file. Defaults to the current directory.")
+        help: "Directory containing Project.pkl, or a .pkl file. Defaults to the current directory."
+    )
     var path: String = "."
     @OptionGroup var output: OutputOptions
     @OptionGroup var evaluation: EvaluationOptions
@@ -103,7 +109,8 @@ struct Validate: ParsableCommand {
             "Resolve dependencies and validate a Pkl project without writing generated artifacts."
     )
     @Argument(
-        help: "Directory containing Main.pkl, or a .pkl file. Defaults to the current directory.")
+        help: "Directory containing Project.pkl, or a .pkl file. Defaults to the current directory."
+    )
     var path: String = "."
     @OptionGroup var output: OutputOptions
     @OptionGroup var evaluation: EvaluationOptions

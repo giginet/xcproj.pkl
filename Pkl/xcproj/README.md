@@ -19,7 +19,7 @@ dependencies {
 }
 ```
 
-Resolve dependencies with `pkl project resolve`. Then define a local Main.pkl:
+Resolve dependencies with `pkl project resolve`. Then define a local Project.pkl:
 
 ```pkl
 amends "@xcproj/Project.pkl"
@@ -34,7 +34,7 @@ targets {
 }
 ```
 
-Use `import "@xcproj/Project.pkl" as X` to define reusable classes extending `X.Target` and reusable `X.Settings` objects. For a workspace, Main.pkl can amend `@xcproj/Workspace.pkl` and import local Project modules. With no argument, `xcprojgen generate` uses `Main.pkl` in the current working directory. A directory argument selects its `Main.pkl`; a `.pkl` file argument selects that file directly. Run the resulting local entry through the matching Swift CLI; evaluating the public schemas produces an intermediate Snapshot, not the final Xcode project.
+Use `import "@xcproj/Project.pkl" as X` to define reusable classes extending `X.Target` and reusable `X.Settings` objects. For a workspace, `Project.pkl` can amend `@xcproj/Workspace.pkl` and define projects inline with `projects { ["core"] = new X { ... } }`, or import local Project modules. Inline projects resolve paths relative to the workspace entry; imported modules keep their own directories. With no argument, `xcprojgen generate` uses `Project.pkl` in the current working directory. A directory argument selects its `Project.pkl`; a `.pkl` file argument selects that file directly. Run the resulting local entry through the matching Swift CLI; evaluating the public schemas produces an intermediate Snapshot, not the final Xcode project.
 
 To include an existing `.xcodeproj` bundle, use the workspace's `importXcodeproj(path)` function:
 
@@ -53,7 +53,7 @@ The return type is `ExistingProject`; `projects` accepts either it or a `Project
 
 Imported paths must identify existing `.xcodeproj` directories. Their contents are opaque: neither `project.xcproj` nor `project.pbxproj` is required or parsed. Imported targets are not exposed as Pkl `Target` objects and cannot be selected by generated schemes; existing shared schemes remain available in Xcode. Importing a project does not create target dependencies. CLI project counts include imported members; target counts include generated targets only.
 
-`xcprojgen validate [path]` uses the same input rules as `generate`: no argument selects `Main.pkl` in the current working directory, a directory selects its `Main.pkl`, and a `.pkl` file is used directly. It resolves dependencies and checks the generation plan without writing Xcode projects or workspaces.
+`xcprojgen validate [path]` uses the same input rules as `generate`: no argument selects `Project.pkl` in the current working directory, a directory selects its `Project.pkl`, and a `.pkl` file is used directly. It resolves dependencies and checks the generation plan without writing Xcode projects or workspaces.
 
 Targets support `application`, `framework`, `tool`, `bundle`, `bundle.unit-test`, and `app-extension` product types. To embed an extension in an application, add a dependency with `link = false` and `embed = true`. Framework dependencies may be linked and embedded independently. An optional `infoPlist` names an existing file relative to `projectDir`; the renderer sets `INFOPLIST_FILE` relative to the generated project and disables automatic plist generation. The repository's `Examples/iOS` demonstrates inherited Swift 6 framework targets, an application, and a notification service extension.
 

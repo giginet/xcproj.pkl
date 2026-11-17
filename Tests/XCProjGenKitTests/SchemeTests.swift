@@ -94,7 +94,7 @@ struct SchemeTests {
                 at: "\(name)/Project.pkl")
         }
         let source = try fixture.file(
-            "Main.pkl",
+            "Project.pkl",
             """
             amends \(quoted(workspaceSchema))
             name = "Together"
@@ -182,7 +182,7 @@ struct SchemeTests {
             #"targets { ["app"] { name = "Two"; type = "tool" } }"#,
             at: "B/Project.pkl")
         let source = try fixture.file(
-            "Main.pkl",
+            "Project.pkl",
             """
             amends \(quoted(workspaceSchema))
             name = "Ambiguous"

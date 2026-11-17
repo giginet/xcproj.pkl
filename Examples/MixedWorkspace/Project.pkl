@@ -1,5 +1,5 @@
 amends "@xcproj/Workspace.pkl"
-import "../Tool/Main.pkl" as Tool
+import "../Tool/Project.pkl" as Tool
 
 name = "Mixed"
 projects {

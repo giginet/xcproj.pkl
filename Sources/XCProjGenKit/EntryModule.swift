@@ -1,7 +1,7 @@
 import Foundation
 
 public enum EntryModule {
-    /// A directory selects its Main.pkl; a .pkl file selects itself.
+    /// A directory selects its Project.pkl; a .pkl file selects itself.
     /// The entry's Pkl type determines whether a project or workspace is generated.
     public static func resolve(_ path: URL) throws -> URL {
         var isDirectory: ObjCBool = false
@@ -11,7 +11,7 @@ public enum EntryModule {
             )
         }
         if isDirectory.boolValue {
-            let module = path.appendingPathComponent("Main.pkl")
+            let module = path.appendingPathComponent("Project.pkl")
             var entryIsDirectory: ObjCBool = false
             guard
                 FileManager.default.fileExists(atPath: module.path, isDirectory: &entryIsDirectory),
@@ -24,7 +24,8 @@ public enum EntryModule {
             return module
         }
         guard path.pathExtension == "pkl" else {
-            throw ProjectError("Expected a project directory containing Main.pkl or a .pkl module")
+            throw ProjectError(
+                "Expected a project directory containing Project.pkl or a .pkl module")
         }
         return path
     }
