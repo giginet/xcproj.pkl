@@ -65,6 +65,9 @@ with the CLI; upgrades do not edit their projects automatically.
 
 ### Maintainer steps
 
+Agents can follow the same steps with the [`release` skill](../.agents/skills/release/SKILL.md),
+which is also linked from `.claude/skills`.
+
 1. Merge the intended changes into `main` and wait for CI to pass.
 2. Publish a **stable** GitHub Release from that commit using an unprefixed tag
    such as `0.1.0`. For example, with the tested commit SHA:
