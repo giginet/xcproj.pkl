@@ -6,10 +6,24 @@ public struct PklTool: Sendable {
     public static let installationGuide =
         "https://pkl-lang.org/main/current/pkl-cli/index.html#installation"
 
+    /// The process boundary. Tests replace it to return canned output or diagnostics.
+    typealias Runner =
+        @Sendable (_ arguments: [String], _ workingDirectory: URL?) throws -> Data
+
     private let executable: String
+    private let environment: [String: String]
+    private let runner: Runner?
 
     public init(executable: String? = nil) {
-        self.executable = executable ?? ProcessInfo.processInfo.environment["PKL_EXEC"] ?? "pkl"
+        self.init(
+            executable: executable, environment: ProcessInfo.processInfo.environment, runner: nil)
+    }
+
+    /// Precedence: explicit option, then PKL_EXEC, then `pkl` on PATH.
+    init(executable: String?, environment: [String: String], runner: Runner? = nil) {
+        self.executable = executable ?? environment["PKL_EXEC"] ?? "pkl"
+        self.environment = environment
+        self.runner = runner
     }
 
     public func evaluate(_ source: URL, properties: [String] = [], expression: String? = nil) throws
@@ -38,8 +52,13 @@ public struct PklTool: Sendable {
     public func installation() throws -> Installation {
         let url = try executableURL()
         let data = try run(["--version"], operation: "version check")
-        let text = String(decoding: data, as: UTF8.self).trimmingCharacters(
-            in: .whitespacesAndNewlines)
+        let (version, supported) = try Self.parseVersion(String(decoding: data, as: UTF8.self))
+        return Installation(executable: url, version: version, isSupported: supported)
+    }
+
+    /// Parse `pkl --version` output. Pre-releases of the minimum version are unsupported.
+    static func parseVersion(_ output: String) throws -> (version: String, isSupported: Bool) {
+        let text = output.trimmingCharacters(in: .whitespacesAndNewlines)
         let regex = try NSRegularExpression(
             pattern:
                 #"^Pkl (([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)(?:\s|$)"#
@@ -55,8 +74,7 @@ public struct PklTool: Sendable {
         let supported =
             major > 0 || minor > 33
             || (minor == 33 && (patch > 0 || match.range(at: 5).location == NSNotFound))
-        return Installation(
-            executable: url, version: String(text[versionRange]), isSupported: supported)
+        return (String(text[versionRange]), supported)
     }
 
     public func resolveProject(at directory: URL, properties: [String] = []) throws {
@@ -73,7 +91,7 @@ public struct PklTool: Sendable {
             guard manager.isExecutableFile(atPath: url.path) else { throw unavailable() }
             return url
         }
-        let paths = (ProcessInfo.processInfo.environment["PATH"] ?? "").components(separatedBy: ":")
+        let paths = (environment["PATH"] ?? "").components(separatedBy: ":")
         guard
             let url = paths.map({ URL(fileURLWithPath: $0).appendingPathComponent(executable) })
                 .first(where: { manager.isExecutableFile(atPath: $0.path) })
@@ -91,7 +109,8 @@ public struct PklTool: Sendable {
     private func run(_ arguments: [String], workingDirectory: URL? = nil, operation: String) throws
         -> Data
     {
-        try runTool(
+        if let runner { return try runner(arguments, workingDirectory) }
+        return try runTool(
             executable: executableURL(), arguments: arguments, workingDirectory: workingDirectory,
             operation: "Pkl \(operation)")
     }

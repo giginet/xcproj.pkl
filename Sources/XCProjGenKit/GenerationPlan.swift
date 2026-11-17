@@ -32,6 +32,19 @@ public struct GenerationPlan: Sendable {
         }
     }
 
+    /// Resolve the enclosing Pkl project's dependencies, if any, then compile.
+    public static func resolveAndCompile(
+        source: URL, tool: PklTool = PklTool(), properties: [String] = [],
+        outputDirectory: URL? = nil
+    ) throws -> GenerationPlan {
+        try validateProperties(properties)
+        if let directory = EntryModule.projectDirectory(for: source) {
+            try tool.resolveProject(at: directory, properties: properties)
+        }
+        return try compile(
+            source: source, tool: tool, properties: properties, outputDirectory: outputDirectory)
+    }
+
     /// outputDirectory replaces the root bundle parent; its name comes from Pkl.
     public static func compile(
         source: URL, tool: PklTool = PklTool(), properties: [String] = [],
@@ -149,6 +162,12 @@ public struct GenerationPlan: Sendable {
 
     @discardableResult
     public func write() throws -> Bool {
+        try write { try XcodeTool.xcprojformatter.run(input: $0) }
+    }
+
+    /// `format` canonicalizes each project.xcproj before it is compared and saved.
+    @discardableResult
+    func write(format: (Data) throws -> Data) throws -> Bool {
         try Self.validateExistingProjectPaths(existingProjects, files: files)
         for file in files {
             if file.isProject,
@@ -163,7 +182,7 @@ public struct GenerationPlan: Sendable {
         }
         // Finish formatting before writing, then compare canonical bytes on every generation.
         let contents = try files.map { file in
-            file.isProject ? try XcodeTool.xcprojformatter.run(input: file.data) : file.data
+            file.isProject ? try format(file.data) : file.data
         }
         var changed = false
         for (file, data) in zip(files, contents) {

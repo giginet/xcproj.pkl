@@ -12,12 +12,6 @@ struct Xcprojgen: ParsableCommand {
     )
 }
 
-enum ToolDefaults {
-    static let version = "0.1.0"
-    static let packageURI =
-        "package://github.com/giginet/xcproj.pkl/releases/download/\(version)/xcproj@\(version)"
-}
-
 struct PklOptions: ParsableArguments {
     @Option(help: "Path to the Pkl executable (default: PKL_EXEC or PATH).")
     var pkl: String?
@@ -38,20 +32,7 @@ struct EvaluationOptions: ParsableArguments {
     }
 
     func plan(_ source: URL, outputDirectory: URL? = nil) throws -> GenerationPlan {
-        // Match Pkl's upward project discovery, including for direct module input.
-        var directory = source.resolvingSymlinksInPath().deletingLastPathComponent()
-        while true {
-            if FileManager.default.fileExists(
-                atPath: directory.appendingPathComponent("PklProject").path)
-            {
-                try runtime.tool.resolveProject(at: directory, properties: property)
-                break
-            }
-            let parent = directory.deletingLastPathComponent()
-            if parent == directory { break }
-            directory = parent
-        }
-        return try GenerationPlan.compile(
+        try GenerationPlan.resolveAndCompile(
             source: source, tool: runtime.tool, properties: property,
             outputDirectory: outputDirectory)
     }
@@ -67,29 +48,13 @@ struct OutputOptions: ParsableArguments {
     var url: URL? { outputDir.map { URL(fileURLWithPath: $0).standardizedFileURL } }
 }
 
-/// The entry's Pkl type determines whether a project or workspace is generated.
+extension InitializationType: ExpressibleByArgument {}
+
+/// Report input mistakes as usage errors.
 func entryModule(_ path: URL) throws -> URL {
-    var isDirectory: ObjCBool = false
-    guard FileManager.default.fileExists(atPath: path.path, isDirectory: &isDirectory) else {
-        throw ValidationError(
-            "Input does not exist: \(path.path). Use 'xcprojgen init <dir>' to create a project.")
+    do { return try EntryModule.resolve(path) } catch let error as ProjectError {
+        throw ValidationError(error.description)
     }
-    if isDirectory.boolValue {
-        let module = path.appendingPathComponent("Main.pkl")
-        var entryIsDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: module.path, isDirectory: &entryIsDirectory),
-            !entryIsDirectory.boolValue
-        else {
-            throw ValidationError(
-                "Entry module not found: \(module.path). Pass a .pkl file path to select another entry."
-            )
-        }
-        return module
-    }
-    guard path.pathExtension == "pkl" else {
-        throw ValidationError("Expected a project directory containing Main.pkl or a .pkl module")
-    }
-    return path
 }
 
 struct Initialize: ParsableCommand {
@@ -159,30 +124,8 @@ struct Doctor: ParsableCommand {
     @OptionGroup var runtime: PklOptions
 
     mutating func run() throws {
-        var failed = false
-        do {
-            let installation = try runtime.tool.installation()
-            print("Pkl executable: \(installation.executable.path)")
-            print("Pkl version: \(installation.version)")
-            print("Required: >= \(PklTool.minimumVersion)")
-            guard installation.isSupported else {
-                throw ValidationError(
-                    "Unsupported Pkl version. Update Pkl: \(PklTool.installationGuide)")
-            }
-        } catch {
-            print("Pkl: \(error.localizedDescription)")
-            failed = true
-        }
-        for tool in XcodeTool.allCases {
-            do {
-                let executable = try tool.check()
-                print("\(tool.rawValue) executable: \(executable.path) (ready)")
-            } catch {
-                print("\(tool.rawValue): \(error.localizedDescription)")
-                failed = true
-            }
-        }
-        if failed { throw ExitCode.failure }
-        print("All tools are ready.")
+        let report = Toolchain.check(pkl: runtime.tool)
+        for line in report.lines { print(line) }
+        if !report.isReady { throw ExitCode.failure }
     }
 }

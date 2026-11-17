@@ -1,14 +1,13 @@
-import ArgumentParser
 import Foundation
-import XCProjGenKit
 
-enum InitializationType: String, ExpressibleByArgument {
+public enum InitializationType: String, CaseIterable, Sendable {
     case workspace
     case project
 }
 
-enum ProjectInitializer {
-    static func write(to directory: URL, type: InitializationType) throws {
+/// Writes a scaffold without invoking Pkl or reading the network.
+public enum ProjectInitializer {
+    public static func write(to directory: URL, type: InitializationType) throws {
         let files = templates(for: type)
         let manager = FileManager.default
         // Check every destination and ancestor before creating any files.
@@ -17,17 +16,15 @@ enum ProjectInitializer {
             if (try? manager.attributesOfItem(atPath: destination.path)) != nil {
                 throw ProjectError("Refusing to overwrite existing file: \(destination.path)")
             }
-            var parent = destination.deletingLastPathComponent()
-            while true {
+            var parent = destination.deletingLastPathComponent().standardizedFileURL
+            while parent.path != "/" {
                 var isDirectory: ObjCBool = false
                 if manager.fileExists(atPath: parent.path, isDirectory: &isDirectory),
                     !isDirectory.boolValue
                 {
                     throw ProjectError("Expected a directory: \(parent.path)")
                 }
-                let next = parent.deletingLastPathComponent()
-                if next == parent { break }
-                parent = next
+                parent = parent.deletingLastPathComponent().standardizedFileURL
             }
         }
         for path in files.keys.sorted() {
