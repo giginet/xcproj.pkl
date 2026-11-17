@@ -14,7 +14,7 @@ Consumer example, once the artifacts have been published:
 amends "pkl:Project"
 dependencies {
   ["xcproj"] {
-    uri = "package://github.com/giginet/xcproj.pkl/releases/download/0.1.0/xcproj@0.1.0"
+    uri = "package://github.com/giginet/xcproj.pkl/releases/download/0.2.0/xcproj@0.2.0"
   }
 }
 ```
@@ -90,11 +90,11 @@ Scripts/package-pkl.sh --version 1.2.3 --skip-publish-check
 Scripts/prepare-pkl-release.sh 1.2.3 -o /tmp/pkl-release-1.2.3
 ```
 
-The output is `dist/pkl/xcproj@0.1.0/` with four files: `xcproj@0.1.0.zip`, `xcproj@0.1.0`, and their `.sha256` sidecars. The ZIP contains package-root modules and README; tests and project manifests are excluded. Swift sources and application-specific examples are outside this package directory.
+The output is `dist/pkl/xcproj@0.2.0/` with four files: `xcproj@0.2.0.zip`, `xcproj@0.2.0`, and their `.sha256` sidecars. The ZIP contains package-root modules and README; tests and project manifests are excluded. Swift sources and application-specific examples are outside this package directory.
 
 Publishing a GitHub Release tagged `X.Y.Z` runs the release workflow and attaches four assets: `package.zip`, `package.zip.sha256`, `xcproj@X.Y.Z`, and `xcproj@X.Y.Z.sha256`. Draft releases do not trigger an upload. The tag supplies the package version; only three numeric components without a prefix or leading zeroes are accepted. `packageZipUrl` points to the fixed `package.zip` asset, while the package URI's HTTPS equivalent serves the versioned metadata.
 
-The preparation script builds in a temporary directory and refuses to reuse its destination, keeping stale artifacts out of an upload. The package script retains Pkl's original archive filename for local use. Both scripts run API tests, preserve the packager's checksums, and neither creates releases nor uploads assets. The version override is passed through `XCPROJ_PKL_PACKAGE_VERSION`; without it, `PklProject` uses the development version `0.1.0`.
+The preparation script builds in a temporary directory and refuses to reuse its destination, keeping stale artifacts out of an upload. The package script retains Pkl's original archive filename for local use. Both scripts run API tests, preserve the packager's checksums, and neither creates releases nor uploads assets. The version override is passed through `XCPROJ_PKL_PACKAGE_VERSION`; without it, `PklProject` uses the development version `0.2.0`.
 
 Consumers must be able to retrieve the release assets; private repository releases remain private. Local cache installation and local dependencies do not require publishing. See the repository's `Docs/CI.md` for workflow configuration and release retry behavior.
 
