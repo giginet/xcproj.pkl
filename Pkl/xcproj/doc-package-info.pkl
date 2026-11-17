@@ -1,12 +1,13 @@
 /// Typed Pkl schemas for Xcode projects and workspaces.
 ///
-/// This reference follows the main branch. Version 0.0.0 denotes unversioned
-/// development documentation, rather than a published package release.
+/// This reference follows the main branch. The version shown is the latest
+/// release, so changes made since then may already appear here.
 amends "pkl:DocPackageInfo"
 
 local sourceRef = read?("prop:sourceRef") ?? "main"
 
 name = "xcproj"
+// Updated by hand as part of each release; see the release skill. 0.0.0 predates this rule.
 version = "0.0.0"
 importUri = "https://raw.githubusercontent.com/giginet/xcproj.pkl/\(sourceRef)/Pkl/xcproj/"
 sourceCode = "https://github.com/giginet/xcproj.pkl"

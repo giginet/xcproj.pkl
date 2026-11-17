@@ -13,7 +13,7 @@ read it when a step below does not go as described.
 
 Publishing is public and cannot be undone: a version that users may have
 downloaded is never replaced. Always get the maintainer's explicit confirmation
-of the version and commit immediately before step 4.
+of the version and commit immediately before step 5.
 
 ## 1. Check the release commit
 
@@ -41,10 +41,25 @@ git log --oneline "$(git describe --tags --abbrev=0 2>/dev/null)"..origin/main
 
 Propose the version with a short summary of the changes and wait for confirmation.
 
-Do not edit `Pkl/xcproj/Internal/Version.txt`, `Formula/xcprojgen.rb`, or any
-other file to bump the version. The tag is the only source of the version.
+Do not edit `Pkl/xcproj/Internal/Version.txt` or `Formula/xcprojgen.rb` to bump
+the version. The tag is the only source of the CLI and package version; the
+documentation version in step 3 is the one file to update by hand.
 
-## 3. Check packaging locally (optional)
+## 3. Update the documentation version
+
+The API reference site is built from `main` and shows the version written in
+`Pkl/xcproj/doc-package-info.pkl`, which the release workflow does not touch.
+Set it to the version being released:
+
+```pkl
+version = "X.Y.Z"
+```
+
+Commit this to `main` (directly, or through a pull request if the maintainer
+prefers), then repeat step 1 for the new commit: the release is published from
+the commit that contains this change, after its CI has passed.
+
+## 4. Check packaging locally (optional)
 
 Worth doing when the release scripts, `Package.swift` resources, or the formula
 template changed since the last release. Requires Xcode 27.2+ and Pkl. Use an
@@ -60,7 +75,7 @@ python3 Scripts/update-homebrew-formula.py X.Y.Z \
 
 These neither upload nor commit anything.
 
-## 4. Publish
+## 5. Publish
 
 After confirmation, publish a stable release from the checked commit:
 
@@ -72,7 +87,7 @@ Use the maintainer's own `gh` session. A release created with a workflow's
 `GITHUB_TOKEN` does not start the release workflow, and neither does a draft or
 a pushed tag.
 
-## 5. Watch the workflow and verify
+## 6. Watch the workflow and verify
 
 ```sh
 gh run list --workflow pkl-release.yml --limit 1
@@ -88,8 +103,11 @@ A complete release has six assets:
 - `xcproj@X.Y.Z` and `xcproj@X.Y.Z.sha256`
 
 and a commit `Update xcprojgen formula to X.Y.Z` on `main` by
-`github-actions[bot]`. Installation works only after both exist. Report the
-release URL and what was verified.
+`github-actions[bot]`. Installation works only after both exist.
+
+The **Pkl API documentation** workflow for the release commit deploys the site;
+check that <https://giginet.me/xcproj.pkl/> shows `X.Y.Z`. Report the release
+URL and what was verified.
 
 ## Recovery
 
