@@ -28,7 +28,7 @@ Smoke tests run unsigned macOS and iOS Simulator builds. They also compile the e
 
 The `pkldoc.yml` workflow builds the checked-out sources using [pkldoc](https://pkl-lang.org/main/current/pkl-doc/index.html). It documents the two public modules, `Project` and `Workspace`, which declare every public type such as `Target`, `Settings`, and `Scheme`; `Internal/` modules are not documented. Documentation metadata lives in `Pkl/xcproj/doc-package-info.pkl` and `Docs/pkldoc/docsite-info.pkl`; the package descriptor is excluded from distributed packages and CLI resources.
 
-This site follows `main`, rather than retaining published release versions. Pkldoc version `0.0.0` denotes unversioned documentation, and source links point to the exact commit being built. The `--no-symlinks` option makes `current` a real directory, as required by [GitHub Pages artifacts](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
+This site follows `main`, rather than retaining published release versions. The version it displays comes from `Pkl/xcproj/doc-package-info.pkl`, which maintainers set to the release version just before publishing each release (`0.0.0` predates this rule). Source links point to the exact commit being built. The `--no-symlinks` option makes `current` a real directory, as required by [GitHub Pages artifacts](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
 Pull requests only build and upload the `github-pages` artifact. Deployment runs after a successful build on `main`, using the `github-pages` environment and job-scoped `pages: write` and `id-token: write` permissions. Manual runs on another branch only build the documentation. Running deployments are not cancelled by newer pushes.
 
@@ -54,21 +54,31 @@ a release of both. Use a major version for breaking CLI or public Pkl API
 changes, a minor version for compatible additions, and a patch for compatible
 fixes. Before 1.0, use a minor version for breaking changes.
 
-The release tag is the source of truth. The workflow passes it to the Pkl
-packager and writes it into the staged CLI resource bundle. Thus `--version`,
-the dependency created by `init`, package metadata, and the Homebrew formula
-agree. No source version bump or formula edit is required before releasing.
-`Pkl/xcproj/Internal/Version.txt` is only the default version for local builds
-and local packaging; release packaging does not modify the checkout or build
-outputs. Existing consumers should update their `PklProject` dependency along
-with the CLI; upgrades do not edit their projects automatically.
+The release tag determines the published version. The workflow passes it to the
+Pkl packager and writes it into the staged CLI resource bundle, so the released
+`--version`, the dependency created by `init`, package metadata, and the
+Homebrew formula always agree with the tag, whatever the sources say. Release
+packaging does not modify the checkout or build outputs.
+
+The sources keep their own copy for everything built outside that workflow.
+`Pkl/xcproj/Internal/Version.txt` is the version of source builds and local
+packaging, and `Pkl/xcproj/doc-package-info.pkl` is the version shown on the API
+reference site. Maintainers set both to the new version in a preparation commit
+before tagging, so the tagged commit reports the version it was released as.
+The formula is never edited by hand. Existing consumers should update their
+`PklProject` dependency along with the CLI; upgrades do not edit their projects
+automatically.
 
 ### Maintainer steps
 
 Agents can follow the same steps with the [`release` skill](../.agents/skills/release/SKILL.md),
 which is also linked from `.claude/skills`.
 
-1. Merge the intended changes into `main` and wait for CI to pass.
+1. Merge the intended changes into `main`, then land a preparation commit that
+   sets the new version in `Pkl/xcproj/Internal/Version.txt` and
+   `Pkl/xcproj/doc-package-info.pkl`, regenerates
+   `Examples/PklProject.deps.json` with `pkl project resolve Examples`, and
+   updates the versions in `Pkl/xcproj/README.md`. Wait for CI to pass on it.
 2. Publish a **stable** GitHub Release from that commit using an unprefixed tag
    such as `0.1.0`. For example, with the tested commit SHA:
 

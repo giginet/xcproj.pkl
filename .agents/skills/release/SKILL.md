@@ -13,7 +13,7 @@ read it when a step below does not go as described.
 
 Publishing is public and cannot be undone: a version that users may have
 downloaded is never replaced. Always get the maintainer's explicit confirmation
-of the version and commit immediately before step 4.
+of the version and commit immediately before step 5.
 
 ## 1. Check the release commit
 
@@ -41,10 +41,44 @@ git log --oneline "$(git describe --tags --abbrev=0 2>/dev/null)"..origin/main
 
 Propose the version with a short summary of the changes and wait for confirmation.
 
-Do not edit `Pkl/xcproj/Internal/Version.txt`, `Formula/xcprojgen.rb`, or any
-other file to bump the version. The tag is the only source of the version.
+## 3. Prepare the release commit
 
-## 3. Check packaging locally (optional)
+The release workflow stamps the tag into the archive it builds, but the sources
+keep their own copy of the version. Update it before tagging so that the tagged
+commit, source builds, and the API reference all report the version being
+released.
+
+1. `Pkl/xcproj/Internal/Version.txt`: set to `X.Y.Z`. Source builds read it for
+   `xcprojgen --version`, for the package that `xcprojgen init` pins, and as the
+   default version of the Pkl package.
+2. `Pkl/xcproj/doc-package-info.pkl`: set `version = "X.Y.Z"`. The API reference
+   site is built from `main` and shows this value.
+3. Regenerate the Examples' lock file, which records the package version:
+
+   ```sh
+   pkl project resolve Examples
+   ```
+
+4. `Pkl/xcproj/README.md`: update the version in the consumer example's package
+   URI and in the packaging output paths.
+
+Do not edit `Formula/xcprojgen.rb`; the workflow generates it from the published
+archive. The example versions in `Docs/CI.md` and the version argument in
+`.github/workflows/pkl-tests.yml` are placeholders and stay as they are.
+
+Check the result, then commit:
+
+```sh
+swift run xcprojgen --version      # prints X.Y.Z
+git grep -n '<previous version>'   # only placeholders and Formula/ should remain
+git commit -am "Prepare X.Y.Z"
+```
+
+Land the commit on `main`, directly or through a pull request as the maintainer
+prefers. Then repeat step 1 for it: the release is published from this commit,
+after its CI has passed.
+
+## 4. Check packaging locally (optional)
 
 Worth doing when the release scripts, `Package.swift` resources, or the formula
 template changed since the last release. Requires Xcode 27.2+ and Pkl. Use an
@@ -60,7 +94,7 @@ python3 Scripts/update-homebrew-formula.py X.Y.Z \
 
 These neither upload nor commit anything.
 
-## 4. Publish
+## 5. Publish
 
 After confirmation, publish a stable release from the checked commit:
 
@@ -72,7 +106,7 @@ Use the maintainer's own `gh` session. A release created with a workflow's
 `GITHUB_TOKEN` does not start the release workflow, and neither does a draft or
 a pushed tag.
 
-## 5. Watch the workflow and verify
+## 6. Watch the workflow and verify
 
 ```sh
 gh run list --workflow pkl-release.yml --limit 1
@@ -88,8 +122,11 @@ A complete release has six assets:
 - `xcproj@X.Y.Z` and `xcproj@X.Y.Z.sha256`
 
 and a commit `Update xcprojgen formula to X.Y.Z` on `main` by
-`github-actions[bot]`. Installation works only after both exist. Report the
-release URL and what was verified.
+`github-actions[bot]`. Installation works only after both exist.
+
+The **Pkl API documentation** workflow for the release commit deploys the site;
+check that <https://giginet.me/xcproj.pkl/> shows `X.Y.Z`. Report the release
+URL and what was verified.
 
 ## Recovery
 
