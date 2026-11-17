@@ -80,13 +80,13 @@ public enum ProjectInitializer {
             "Templates.pkl": #"""
             import "@xcproj/Project.pkl" as X
 
-            open class MacOSTarget extends X.Target {
-              platform = "macOS"
-              deploymentTarget = "14.0"
+            open class BaseTarget extends X.Target {
+              platform = "iOS"
+              deploymentTarget = "17.0"
             }
 
-            open class Framework extends MacOSTarget { type = "framework" }
-            open class UnitTests extends MacOSTarget { type = "bundle.unit-test" }
+            open class Framework extends BaseTarget { type = "framework" }
+            open class UnitTests extends BaseTarget { type = "bundle.unit-test" }
             """#,
             "\(projectDirectory)Sources/Core.swift": """
             public enum Core {
