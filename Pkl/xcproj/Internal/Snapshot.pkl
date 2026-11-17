@@ -27,8 +27,8 @@ function target(p: Model, prefix: String, k: String, t: Model.Target): W.TargetI
   kind = t.kind
   type = t.type
   platform = t.platform
-  id = t.id ?? B.stableId(p.idNamespace, "target", k)
-  productId = t.productId ?? B.stableId(p.idNamespace, "product", k)
+  id = t.id ?? B.stableId(p.bundleIdPrefix, "target", k)
+  productId = t.productId ?? B.stableId(p.bundleIdPrefix, "product", k)
   productName = B.productName(t)
   productFileType = B.productFileType(t)
   hasProduct = t.kind == "native" && t.product == null
@@ -53,7 +53,7 @@ function target(p: Model, prefix: String, k: String, t: Model.Target): W.TargetI
 
 function project(p: Model, k: String): W.ProjectInput = new {
   key = k
-  idNamespace = p.idNamespace
+  idNamespace = p.bundleIdPrefix
   sourcePathId = "\(projectId(k)):module"
   rootPathId = "\(projectId(k)):root"
   artifactId = projectId(k)

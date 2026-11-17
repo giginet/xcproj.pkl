@@ -27,7 +27,7 @@ For example, the following `Main.pkl` defines a framework and its test target. `
 amends "@xcproj/Project.pkl"
 
 name = "Core"
-idNamespace = "com.example.core"
+bundleIdPrefix = "com.example.core"
 
 targets {
   ["core"] {
@@ -142,7 +142,7 @@ amends "@xcproj/Project.pkl"
 import "Templates.pkl" as Templates
 
 name = "Demo"
-idNamespace = "com.example.demo"
+bundleIdPrefix = "com.example.demo"
 
 local framework: Templates.ExtensionSafeFramework = new {}
 
