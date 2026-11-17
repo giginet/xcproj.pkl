@@ -17,88 +17,94 @@ xcproj.pkl is a DSL for describing the `*.xcproj` JSON format. It lets you defin
 
 Inspired by [XcodeGen](https://github.com/yonaskolb/XcodeGen) and [Tuist](https://tuist.dev/), this project aims to provide a declarative language for defining projects.
 
-## Defining a Basic Project
+## Getting Started
 
-xcproj.pkl provides type-safe models based on [apple/xcode-project-format](https://github.com/apple/xcode-project-format).
+Use the `xcprojgen` CLI to create a Pkl project, describe a workspace, and generate its Xcode bundles. Run the following steps from the directory where you want to create `MyApp`.
 
-For example, the following `Main.pkl` defines a framework and its test target. `@xcproj` is a package dependency declared in `PklProject`. See Usage below for setup instructions.
+### 1. Prerequisites
 
-```pkl
-amends "@xcproj/Project.pkl"
+- macOS 14 or later
+- Xcode 27.2 or later
+- Homebrew
 
-name = "Core"
-bundleIdPrefix = "com.example.core"
-
-targets {
-  ["core"] {
-    name = "Core"
-    type = "framework"
-    platform = "macOS"
-    deploymentTarget = "14.0"
-    sources { new { path = "Sources" } }
-  }
-  ["tests"] {
-    name = "CoreTests"
-    type = "bundle.unit-test"
-    platform = "macOS"
-    deploymentTarget = "14.0"
-    sources { new { path = "Tests" } }
-    dependencies { new { target = "core" } }
-  }
-}
-```
-
-See [Examples](./Examples) for details.
-
-
-## Prerequisites
-
-- Xcode 27.2+
-- Pkl Compiler
-    - `brew install pkl`
-
-## xcprojgen
-
-This project includes the `xcprojgen` CLI, which creates Pkl templates and generates Xcode project and workspace bundles.
-
-### Installation
+### 2. Install xcprojgen
 
 ```sh
 brew tap giginet/xcproj https://github.com/giginet/xcproj.pkl.git
 brew install giginet/xcproj/xcprojgen
 ```
 
-### Usage
+Homebrew also installs the required Pkl compiler (0.33.0 or later).
+
+### 3. Check your environment
 
 ```sh
-# Check Pkl (0.33.0+) and the Xcode tools xcodeproj and xcprojformatter
 xcprojgen doctor
+```
 
-# Create a workspace scaffold (--type workspace is optional)
-xcprojgen init MyWorkspace --type workspace
+This checks the Pkl version and the availability of `xcodeproj` and `xcprojformatter` in the Xcode installation selected by `xcode-select` or `DEVELOPER_DIR`. If either Xcode tool is unavailable, install and select Xcode 27.2 or later.
 
-# Create a scaffold for a single project
-xcprojgen init MyLibrary --type project
+### 4. Initialize a Pkl project
 
-# Resolve dependencies and validate the Pkl project without writing output
-xcprojgen validate MyWorkspace
+```sh
+xcprojgen init MyApp
+```
 
-# Generate the workspace and each of its projects
-xcprojgen generate MyWorkspace
-open MyWorkspace/Workspace.xcworkspace
+This creates `MyApp/PklProject` with the `xcproj` package dependency, a `Main.pkl` workspace entry point, shared target templates, and a sample `Core` framework project with sources and a unit-test target.
 
-# Or generate from Main.pkl in the current directory
-(cd MyWorkspace && xcprojgen generate)
+### 5. Write Main.pkl
 
-# Generate a single project
-xcprojgen generate MyLibrary
-open MyLibrary/Core.xcodeproj
+Replace `MyApp/Main.pkl` with:
+
+```pkl
+amends "@xcproj/Workspace.pkl"
+
+name = "MyApp"
+projects {
+  ["core"] = import("Projects/Core/Project.pkl")
+}
+```
+
+The workspace name determines the generated bundle name, `MyApp.xcworkspace`. The imported project defines the `Core` framework and its test target; edit `MyApp/Projects/Core/Project.pkl` to customize them. `@xcproj` refers to the dependency declared in `PklProject`.
+
+### 6. Validate the Pkl project
+
+```sh
+xcprojgen validate MyApp
+```
+
+This resolves the package dependencies and validates the configuration without writing Xcode bundles.
+
+### 7. Generate the workspace
+
+```sh
+xcprojgen generate MyApp
+```
+
+This creates `MyApp/MyApp.xcworkspace` and `MyApp/Projects/Core/Core.xcodeproj`. Each generated `project.xcproj` is formatted with `xcprojformatter`; repeated generation leaves unchanged files untouched.
+
+### 8. Open the workspace
+
+```sh
+(cd MyApp && open MyApp.xcworkspace)
+```
+
+### Other CLI options
+
+```sh
+# Generate from Main.pkl in the current directory
+(cd MyApp && xcprojgen generate)
 
 # Specify the workspace output directory
-xcprojgen generate MyWorkspace --output-dir /tmp/generated
+xcprojgen generate MyApp --output-dir /tmp/generated
 
 # Generate from a specific Pkl file
-xcprojgen generate MyWorkspace/Projects/Core/Project.pkl
+xcprojgen generate MyApp/Projects/Core/Project.pkl
+
+# Create and generate a standalone project
+xcprojgen init MyLibrary --type project
+xcprojgen generate MyLibrary
+open MyLibrary/Core.xcodeproj
 ```
 
 `generate [path]` selects the entry point from its optional argument:
@@ -109,9 +115,7 @@ xcprojgen generate MyWorkspace/Projects/Core/Project.pkl
 
 Relative paths are resolved from the current working directory. To use another entry point, pass its `.pkl` file path directly.
 
-`validate [path]` uses the same input rules. It resolves dependencies and checks the generation plan without writing Xcode projects or workspaces.
-
-`generate` formats each generated `project.xcproj` with `xcrun xcprojformatter` before saving it. Repeated generation leaves unchanged files untouched. Existing projects imported into a workspace are not formatted. Xcode tools use the installation selected by `xcode-select` or `DEVELOPER_DIR`; `doctor` checks that both `xcrun xcodeproj` and `xcrun xcprojformatter` can run. If either tool is unavailable, install Xcode 27.2 or later and select that installation.
+`validate [path]` uses the same input rules.
 
 ### Agent skill
 
