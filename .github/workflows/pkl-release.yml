@@ -1,4 +1,4 @@
-name: Publish Pkl package
+name: Release xcprojgen and Pkl
 
 on:
   release:
@@ -8,17 +8,20 @@ permissions:
   contents: read
 
 concurrency:
-  group: pkl-release-${{ github.event.release.tag_name }}
+  # Serialize releases so two runs cannot update the tap concurrently.
+  group: release
   cancel-in-progress: false
 
 jobs:
   publish:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: xcode-27
+    timeout-minutes: 30
     permissions:
       contents: write
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name }}
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -29,7 +32,49 @@ jobs:
           version: '0.33.0'
       - name: Package the tagged version and verify artifacts
         run: bash Scripts/prepare-pkl-release.sh "$RELEASE_TAG" --output-path "$RUNNER_TEMP/pkl-release"
-      - name: Attach the package, metadata, and checksums
+      - name: Build and verify the universal CLI archive
+        run: bash Scripts/prepare-cli-release.sh "$RELEASE_TAG" --output-path "$RUNNER_TEMP/cli-release"
+      - name: Attach both packages, metadata, and checksums
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/pkl-release/"* --repo "$GITHUB_REPOSITORY"
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            "$RUNNER_TEMP/pkl-release/"* "$RUNNER_TEMP/cli-release/"* \
+            --repo "$GITHUB_REPOSITORY"
+
+  update-formula:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          # The token is needed only here to commit the generated formula.
+          persist-credentials: true
+      - name: Download the published CLI archive and verify its checksum
+        run: |
+          gh release download "$RELEASE_TAG" \
+            --pattern "xcprojgen-$RELEASE_TAG-macos-universal.tar.gz*" \
+            --dir "$RUNNER_TEMP/cli-release" --repo "$GITHUB_REPOSITORY"
+          cd "$RUNNER_TEMP/cli-release"
+          shasum -a 256 --check "xcprojgen-$RELEASE_TAG-macos-universal.tar.gz.sha256"
+      - name: Generate and check the formula
+        run: |
+          python3 Scripts/update-homebrew-formula.py "$RELEASE_TAG" \
+            "$RUNNER_TEMP/cli-release/xcprojgen-$RELEASE_TAG-macos-universal.tar.gz"
+          ruby -c Formula/xcprojgen.rb
+          git diff --check
+      - name: Commit the formula to main
+        run: |
+          git add Formula/xcprojgen.rb
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "Update xcprojgen formula to $RELEASE_TAG"
+          git push origin HEAD:main

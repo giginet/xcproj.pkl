@@ -1,5 +1,8 @@
+import PklRuntimeResources
+
 public enum ToolDefaults {
-    public static let version = "0.1.0"
+    /// Release packaging stamps the tag into the bundled Version.txt.
+    public static let version = PklRuntimeResources.version
     public static let packageURI =
         "package://github.com/giginet/xcproj.pkl/releases/download/\(version)/xcproj@\(version)"
 }

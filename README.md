@@ -63,7 +63,10 @@ This project includes the `xcprojgen` CLI, which creates Pkl templates and gener
 
 ### Installation
 
-<TBD>
+```sh
+brew tap giginet/xcproj https://github.com/giginet/xcproj.pkl.git
+brew install giginet/xcproj/xcprojgen
+```
 
 ### Usage
 
