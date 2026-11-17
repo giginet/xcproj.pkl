@@ -19,7 +19,7 @@ Inspired by [XcodeGen](https://github.com/yonaskolb/XcodeGen) and [Tuist](https:
 
 ## Getting Started
 
-Use the `xcprojgen` CLI to create a Pkl project, define its targets, and generate Xcode projects or workspaces. Run the following steps from the directory where you want to create `MyApp`.
+Use the `xcprojgen` CLI to create a Pkl project, define its targets, and generate Xcode projects or workspaces. Run the following steps from your project's root directory.
 
 ### 1. Prerequisites
 
@@ -47,14 +47,14 @@ This checks the Pkl version and the availability of `xcodeproj` and `xcprojforma
 ### 4. Initialize a Pkl project
 
 ```sh
-xcprojgen init MyApp
+xcprojgen init
 ```
 
-This creates only `MyApp/PklProject` and `MyApp/Project.pkl`. The first declares the `xcproj` package dependency; the second contains the target templates and project definition. To initialize the current directory, run `xcprojgen init` without a path. Existing files are never overwritten.
+This creates only `PklProject` and `Project.pkl` in the current directory. The first declares the `xcproj` package dependency; the second contains the target templates and project definition. Existing files are never overwritten.
 
 ### 5. Edit Project.pkl
 
-Replace `MyApp/Project.pkl` with the following to name the project and its targets `MyApp`, enable Swift 6, and share iOS settings between the framework and its tests:
+Replace `Project.pkl` with the following to name the project and its targets `MyApp`, enable Swift 6, and share iOS settings between the framework and its tests:
 
 ```pkl
 amends "@xcproj/Project.pkl"
@@ -91,7 +91,7 @@ targets {
 ### 6. Validate the Pkl project
 
 ```sh
-xcprojgen validate MyApp
+xcprojgen validate
 ```
 
 This resolves the package dependencies and validates the configuration without writing Xcode bundles.
@@ -99,15 +99,15 @@ This resolves the package dependencies and validates the configuration without w
 ### 7. Generate the project
 
 ```sh
-xcprojgen generate MyApp
+xcprojgen generate
 ```
 
-This creates `MyApp/MyApp.xcodeproj`. Each generated `project.xcproj` is formatted with `xcprojformatter`; repeated generation leaves unchanged files untouched.
+This creates `MyApp.xcodeproj` in the current directory. Each generated `project.xcproj` is formatted with `xcprojformatter`; repeated generation leaves unchanged files untouched.
 
 ### 8. Open the project
 
 ```sh
-(cd MyApp && open MyApp.xcodeproj)
+open MyApp.xcodeproj
 ```
 
 ### Agent skill
@@ -124,14 +124,14 @@ xcprojgen skills export .agents/skills
 ### Other CLI options
 
 ```sh
-# Generate from Project.pkl in the current directory
-(cd MyApp && xcprojgen generate)
+# Generate a project in another directory
+xcprojgen generate ../OtherProject
 
 # Specify the output directory
-xcprojgen generate MyApp --output-dir /tmp/generated
+xcprojgen generate --output-dir /tmp/generated
 
 # Generate from an explicitly selected Pkl file
-xcprojgen generate MyApp/Project.pkl
+xcprojgen generate Project.pkl
 ```
 
 `generate [path]` selects the entry point from its optional argument:
@@ -238,16 +238,18 @@ in the runnable examples.
 
 ### Initialize a Workspace
 
+From the directory you want to initialize as a workspace, run:
+
 ```sh
-xcprojgen init MyWorkspace --type workspace
+xcprojgen init --type workspace
 ```
 
 This creates `PklProject` and a `Project.pkl` that amends `@xcproj/Workspace.pkl`, with the target templates and member project defined inline. Edit `Project.pkl`, then run:
 
 ```sh
-xcprojgen validate MyWorkspace
-xcprojgen generate MyWorkspace
-open MyWorkspace/Workspace.xcworkspace
+xcprojgen validate
+xcprojgen generate
+open Workspace.xcworkspace
 ```
 
 See [Examples/Workspace](./Examples/Workspace/Project.pkl) for a workspace with multiple Pkl projects, and [Examples/MixedWorkspace](./Examples/MixedWorkspace/Project.pkl) for importing existing Xcode projects. The [example guide](./Examples/README.md) includes commands to generate and build them.
