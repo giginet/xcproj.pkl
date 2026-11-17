@@ -83,7 +83,7 @@ public enum ProjectInitializer {
 
             local open class BaseTarget extends X.Target {
               platform = "iOS"
-              deploymentTarget = "17.0"
+              deploymentTarget = "26.0"
             }
 
             local class Framework extends BaseTarget { type = "framework" }

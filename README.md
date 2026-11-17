@@ -62,7 +62,7 @@ import "@xcproj/Project.pkl" as X
 
 local open class BaseTarget extends X.Target {
   platform = "iOS"
-  deploymentTarget = "17.0"
+  deploymentTarget = "26.0"
   settings { base { ["SWIFT_VERSION"] = "6.0" } }
 }
 
