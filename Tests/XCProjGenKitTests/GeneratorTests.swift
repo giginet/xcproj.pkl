@@ -140,5 +140,5 @@ private func request(_ id: String, _ base: [String: String], _ path: String) -> 
         _ = try GenerationPlan.accept(data(files: [file], targets: 99), manifest: m, facts: facts)
     }
     try f.directory("Example.xcodeproj/project.xcproj")
-    expectFailure(containing: "Output file is a directory") { try accepted.write() }
+    expectFailure(containing: "Output file is a directory") { try accepted.write { $0 } }
 }
