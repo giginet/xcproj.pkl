@@ -4,13 +4,25 @@ import XcodeProjectFormat
 
 @testable import XCProjGenKit
 
+private let validDocument = #"""
+    {
+      "configurations": ["Debug"], "default-configuration": "Debug",
+      "files": [
+        {"kind":"folder","path":"<PROJECT>/Sources","target-membership":["App"]},
+        {"kind":"group","name":"Products","children":[{"path":"<PRODUCTS>/App","id":"BBBBBBBBBBBBBBBBBBBBBBBB","type":"compiled.mach-o.executable","index":false}]}
+      ],
+      "localizations": {"development":"en","supported":["Base"]},
+      "targets": [{"name":"App","id":"AAAAAAAAAAAAAAAAAAAAAAAA","product-type":"tool","product":"Products/App","build-phases":["compile-sources"],"dependencies":[]}]
+    }
+    """#
+
 @Test func rawValidatorCatchesDanglingMembershipAndMissingProduct() throws {
-    let bad = toolDocument.replacingOccurrences(
+    let bad = validDocument.replacingOccurrences(
         of: #""target-membership":["App"]"#, with: #""target-membership":["Missing"]"#)
     expectFailure(containing: "unknown or ambiguous target 'Missing'") {
         _ = try ProjectValidator.validate(data: Data(bad.utf8))
     }
-    var project = try XCSchema.Project(jsonRepresentation: Data(toolDocument.utf8))
+    var project = try XCSchema.Project(jsonRepresentation: Data(validDocument.utf8))
     project.topLevelReferences.removeLast()
     expectFailure(containing: "Product of App") {
         _ = try ProjectValidator.validate(data: project.jsonRepresentation())
@@ -22,7 +34,7 @@ import XcodeProjectFormat
         "targets":[{"name":"A","id":"AAAAAAAAAAAAAAAAAAAAAAAA","product-type":"tool","dependencies":["B"]},{"name":"B","id":"BBBBBBBBBBBBBBBBBBBBBBBB","product-type":"tool","dependencies":["A"]}]}
         """#
     expectFailure(containing: "cycle") { _ = try ProjectValidator.validate(data: Data(raw.utf8)) }
-    let bad = toolDocument.replacingOccurrences(
+    let bad = validDocument.replacingOccurrences(
         of: #""build-phases":["compile-sources"]"#,
         with: #""specialized-configurations":["Debug","Debug"]"#)
     expectFailure(containing: "duplicate specialized configuration names") {
@@ -114,7 +126,7 @@ private func request(_ id: String, _ base: [String: String], _ path: String) -> 
     let file: [String: Any] = [
         "artifactId": "root", "kind": "project",
         "destinationUri": facts.paths["file"]!.canonicalUri,
-        "text": toolDocument,
+        "text": validDocument,
     ]
     func data(files: [[String: Any]], targets: Int = 1) throws -> Data {
         try JSONSerialization.data(withJSONObject: [
@@ -140,5 +152,5 @@ private func request(_ id: String, _ base: [String: String], _ path: String) -> 
         _ = try GenerationPlan.accept(data(files: [file], targets: 99), manifest: m, facts: facts)
     }
     try f.directory("Example.xcodeproj/project.xcproj")
-    expectFailure(containing: "Output file is a directory") { try accepted.write { $0 } }
+    expectFailure(containing: "Output file is a directory") { try accepted.write() }
 }

@@ -162,12 +162,6 @@ public struct GenerationPlan: Sendable {
 
     @discardableResult
     public func write() throws -> Bool {
-        try write { try XcodeTool.xcprojformatter.run(input: $0) }
-    }
-
-    /// `format` canonicalizes each project.xcproj before it is compared and saved.
-    @discardableResult
-    func write(format: (Data) throws -> Data) throws -> Bool {
         try Self.validateExistingProjectPaths(existingProjects, files: files)
         for file in files {
             if file.isProject,
@@ -182,7 +176,7 @@ public struct GenerationPlan: Sendable {
         }
         // Finish formatting before writing, then compare canonical bytes on every generation.
         let contents = try files.map { file in
-            file.isProject ? try format(file.data) : file.data
+            file.isProject ? try XcodeTool.xcprojformatter.run(input: file.data) : file.data
         }
         var changed = false
         for (file, data) in zip(files, contents) {

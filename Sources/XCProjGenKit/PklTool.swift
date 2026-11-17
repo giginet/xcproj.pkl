@@ -6,24 +6,17 @@ public struct PklTool: Sendable {
     public static let installationGuide =
         "https://pkl-lang.org/main/current/pkl-cli/index.html#installation"
 
-    /// The process boundary. Tests replace it to return canned output or diagnostics.
-    typealias Runner =
-        @Sendable (_ arguments: [String], _ workingDirectory: URL?) throws -> Data
-
     private let executable: String
     private let environment: [String: String]
-    private let runner: Runner?
 
     public init(executable: String? = nil) {
-        self.init(
-            executable: executable, environment: ProcessInfo.processInfo.environment, runner: nil)
+        self.init(executable: executable, environment: ProcessInfo.processInfo.environment)
     }
 
     /// Precedence: explicit option, then PKL_EXEC, then `pkl` on PATH.
-    init(executable: String?, environment: [String: String], runner: Runner? = nil) {
+    init(executable: String?, environment: [String: String]) {
         self.executable = executable ?? environment["PKL_EXEC"] ?? "pkl"
         self.environment = environment
-        self.runner = runner
     }
 
     public func evaluate(_ source: URL, properties: [String] = [], expression: String? = nil) throws
@@ -109,8 +102,7 @@ public struct PklTool: Sendable {
     private func run(_ arguments: [String], workingDirectory: URL? = nil, operation: String) throws
         -> Data
     {
-        if let runner { return try runner(arguments, workingDirectory) }
-        return try runTool(
+        try runTool(
             executable: executableURL(), arguments: arguments, workingDirectory: workingDirectory,
             operation: "Pkl \(operation)")
     }

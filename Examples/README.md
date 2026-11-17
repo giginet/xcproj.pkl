@@ -54,7 +54,7 @@ This smoke test copies the example and its local Pkl dependency to a temporary d
 
 ## Smoke tests
 
-GitHub Actions runs the smoke tests sequentially in one macOS job, sharing the checkout, Pkl installation, and Swift build outputs. They are the only checks that run the real Pkl evaluator through `xcprojgen`; the Swift unit tests replace it with a stub. Each example script builds `xcprojgen`, validates the Pkl input, generates the Xcode bundles, and runs `xcodebuild`. The scripts can also run individually with Pkl on `PATH` (or `PKL_EXEC`) and Xcode 27.2 or later.
+GitHub Actions runs the smoke tests sequentially in one macOS job, sharing the checkout, Pkl installation, and Swift build outputs. They are the only checks that launch the `xcprojgen` executable; the Swift tests call `XCProjGenKit` directly. Each example script builds `xcprojgen`, validates the Pkl input, generates the Xcode bundles, and runs `xcodebuild`. The scripts can also run individually with Pkl on `PATH` (or `PKL_EXEC`) and Xcode 27.2 or later.
 
 | Script | Additional checks |
 |---|---|

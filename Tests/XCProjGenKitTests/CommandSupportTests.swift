@@ -106,58 +106,83 @@ struct PklToolTests {
 
     @Test func explicitExecutableWinsOverEnvironmentAndPath() throws {
         let f = try Fixture()
-        let option = try f.executable("option/pkl")
-        let variable = try f.executable("variable/pkl")
-        let onPath = try f.executable("bin/pkl")
-        let version: PklTool.Runner = { _, _ in Data("Pkl 0.33.0".utf8) }
+        // Stand-ins for pkl that only answer `--version`, each with its own version.
+        let option = try f.executable("option/pkl", script: "echo 'Pkl 1.0.1'")
+        let variable = try f.executable("variable/pkl", script: "echo 'Pkl 1.0.2'")
+        try f.executable("bin/pkl", script: "echo 'Pkl 1.0.3'")
         let environment = ["PKL_EXEC": variable.path, "PATH": "/missing:\(f.url("bin").path)"]
-        func located(_ executable: String?, _ environment: [String: String]) throws -> String {
-            try PklTool(executable: executable, environment: environment, runner: version)
-                .installation().executable.path
+        func version(_ executable: String?, _ environment: [String: String]) throws -> String {
+            try PklTool(executable: executable, environment: environment).installation().version
         }
-        #expect(try located(option.path, environment) == option.path)
-        #expect(try located(nil, environment) == variable.path)
-        #expect(try located(nil, ["PATH": environment["PATH"]!]) == onPath.path)
+        #expect(try version(option.path, environment) == "1.0.1")
+        #expect(try version(nil, environment) == "1.0.2")
+        #expect(try version(nil, ["PATH": environment["PATH"]!]) == "1.0.3")
         // A bare name is looked up on PATH, whichever way it was supplied.
-        #expect(try located(nil, ["PKL_EXEC": "pkl", "PATH": f.url("bin").path]) == onPath.path)
+        #expect(try version(nil, ["PKL_EXEC": "pkl", "PATH": f.url("bin").path]) == "1.0.3")
     }
 
     @Test func missingOrNonExecutablePklExplainsHowToInstallIt() throws {
         let f = try Fixture()
         let plain = try f.file("plain/pkl")
-        let never: PklTool.Runner = { _, _ in
-            Issue.record("pkl must not run")
-            return Data()
-        }
         for (executable, environment) in [
             ("/missing/pkl", [:]), (plain.path, [:]), ("pkl", ["PATH": f.url("plain").path]),
         ] {
-            let tool = PklTool(executable: executable, environment: environment, runner: never)
+            let tool = PklTool(executable: executable, environment: environment)
             expectFailure(containing: PklTool.installationGuide) { _ = try tool.installation() }
         }
     }
+}
 
-    @Test func evaluationRunsInTheModuleDirectoryWithJSONOutput() throws {
+@Suite(.requiresPkl)
+struct DependencyResolutionTests {
+    private let target = #"targets { ["app"] { name = "App"; type = "tool"; platform = "macOS" } }"#
+
+    @Test func enclosingPklProjectIsResolvedBeforeCompiling() throws {
         let f = try Fixture()
-        let source = try f.file("Config/Main.pkl")
-        let pkl = PklStub { _ in Data("{}".utf8) }
-        _ = try pkl.tool.evaluate(source, properties: ["a=b", "c=d"], expression: "value")
-        let call = try #require(pkl.calls.first)
-        #expect(call.command == "eval" && call.source == source.path)
-        #expect(call.properties == ["a=b", "c=d"])
-        #expect(call.workingDirectory?.path == f.url("Config").path)
-        for flags in [["--format", "json"], ["--expression", "value"]] {
-            let index = try #require(call.arguments.firstIndex(of: flags[0]))
-            #expect(call.arguments[index + 1] == flags[1])
+        let package = repository.appendingPathComponent("Pkl/xcproj/PklProject").path
+        try f.file(
+            "PklProject",
+            "amends \"pkl:Project\"\ndependencies { [\"xcproj\"] = import(\(quoted(package))) }\n")
+        let source = try f.file(
+            "Projects/Core/Project.pkl",
+            "amends \"@xcproj/Project.pkl\"\nname = \"Core\"\n\(target)\n")
+        // Dependency notation only works once the enclosing project is resolved.
+        expectFailure(containing: "xcproj") { _ = try GenerationPlan.compile(source: source) }
+
+        let plan = try GenerationPlan.resolveAndCompile(source: source)
+        #expect(plan.projectCount == 1 && plan.targetCount == 1)
+        #expect(f.exists("PklProject.deps.json"))
+        #expect(plan.destination.path == f.url("Projects/Core/Core.xcodeproj").path)
+    }
+
+    @Test func modulesOutsideAPklProjectCompileWithoutResolution() throws {
+        let f = try Fixture()
+        let plan = try GenerationPlan.resolveAndCompile(source: f.project(target))
+        #expect(plan.targetCount == 1)
+        #expect(!f.exists("PklProject.deps.json"))
+    }
+
+    @Test func invalidPropertiesAreRejectedBeforeResolution() throws {
+        let f = try Fixture()
+        try f.file("PklProject", "this is not valid Pkl")
+        let source = try f.project(target)
+        for (property, message) in [
+            ("=oops", "Expected --property key=value"),
+            ("xcproj.internal.request=bad", "reserved"),
+        ] {
+            expectFailure(containing: message) {
+                _ = try GenerationPlan.resolveAndCompile(source: source, properties: [property])
+            }
         }
     }
 }
 
 struct ToolchainTests {
+    /// A stand-in for pkl that only answers `--version`.
     private func pkl(_ f: Fixture, version: String) throws -> PklTool {
-        PklTool(executable: try f.executable("pkl").path, environment: [:]) { _, _ in
-            Data(version.utf8)
-        }
+        PklTool(
+            executable: try f.executable("pkl", script: "echo \(shellQuoted(version))").path,
+            environment: [:])
     }
 
     @Test func readyToolchainListsEveryExecutable() throws {
@@ -186,7 +211,7 @@ struct ToolchainTests {
     }
 
     @Test func everyMissingToolIsReportedTogether() {
-        let pkl = PklTool(executable: "/missing/pkl", environment: [:]) { _, _ in Data() }
+        let pkl = PklTool(executable: "/missing/pkl", environment: [:])
         let report = Toolchain.check(pkl: pkl) { tool in
             throw ProjectError("xcrun \(tool.rawValue) failed\nInstall Xcode 27.2 or later")
         }
