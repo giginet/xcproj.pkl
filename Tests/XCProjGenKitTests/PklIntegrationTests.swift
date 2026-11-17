@@ -4,7 +4,7 @@ import XcodeProjectFormat
 
 @testable import XCProjGenKit
 
-@Suite(.enabled(if: hasPkl, "Set PKL_EXEC to run the real Pkl integration tests"))
+@Suite(.requiresPkl)
 struct NativePklTests {
     @Test func nativeClassesAmendmentsLateBindingAndProjection() throws {
         let f = try Fixture()
@@ -354,7 +354,7 @@ struct NativePklTests {
               }
             }
             """)
-        let real = try #require(ProcessInfo.processInfo.environment["PKL_EXEC"])
+        let real = try PklRequirement.installation.get().executable.path
         // Mutate the authoring file after evaluation 1. Render must use the frozen snapshot.
         let wrapper = try f.file(
             "pkl-wrapper",
@@ -380,4 +380,33 @@ struct NativePklTests {
         #expect(try String(contentsOf: source, encoding: .utf8).contains("invalid Pkl"))
     }
 
+    @Test(arguments: ["link", "embed", "missing-plist"])
+    func invalidAppExtensionDependenciesAndPlistAreRejected(_ kind: String) throws {
+        let fixture = try Fixture()
+        let body: String
+        let message: String
+        switch kind {
+        case "link":
+            body = #"""
+                targets {
+                    ["app"] { name = "App"; type = "application"; platform = "iOS"; dependencies { new { target = "service" } } }
+                    ["service"] { name = "Service"; type = "app-extension"; platform = "iOS" }
+                }
+                """#
+            message = "only frameworks can be linked"
+        case "embed":
+            body = #"""
+                targets {
+                    ["framework"] { name = "Framework"; type = "framework"; platform = "iOS"; dependencies { new { target = "service"; link = false; embed = true } } }
+                    ["service"] { name = "Service"; type = "app-extension"; platform = "iOS" }
+                }
+                """#
+            message = "embedding"
+        default:
+            body =
+                #"targets { ["service"] { name = "Service"; type = "app-extension"; platform = "iOS"; infoPlist = "Missing.plist" } }"#
+            message = "infoPlist: file does not exist"
+        }
+        expectFailure(containing: message) { _ = try fixture.compile(body) }
+    }
 }

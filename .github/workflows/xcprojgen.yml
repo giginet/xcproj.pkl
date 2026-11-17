@@ -32,5 +32,5 @@ jobs:
           swift --version
       - name: Build xcprojgen
         run: swift build --product xcprojgen
-      - name: Run all Swift tests, including Pkl integration tests
+      - name: Run all Swift tests, including those that evaluate Pkl
         run: swift test

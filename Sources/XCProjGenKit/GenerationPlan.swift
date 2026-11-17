@@ -32,6 +32,19 @@ public struct GenerationPlan: Sendable {
         }
     }
 
+    /// Resolve the enclosing Pkl project's dependencies, if any, then compile.
+    public static func resolveAndCompile(
+        source: URL, tool: PklTool = PklTool(), properties: [String] = [],
+        outputDirectory: URL? = nil
+    ) throws -> GenerationPlan {
+        try validateProperties(properties)
+        if let directory = EntryModule.projectDirectory(for: source) {
+            try tool.resolveProject(at: directory, properties: properties)
+        }
+        return try compile(
+            source: source, tool: tool, properties: properties, outputDirectory: outputDirectory)
+    }
+
     /// outputDirectory replaces the root bundle parent; its name comes from Pkl.
     public static func compile(
         source: URL, tool: PklTool = PklTool(), properties: [String] = [],

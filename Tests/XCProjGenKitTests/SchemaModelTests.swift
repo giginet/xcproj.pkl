@@ -4,7 +4,7 @@ import XcodeProjectFormat
 
 @testable import XCProjGenKit
 
-@Suite(.enabled(if: hasPkl, "Set PKL_EXEC to test the typed Xcode schema"))
+@Suite(.requiresPkl)
 struct SchemaModelTests {
     @Test(arguments: [false, true])
     func nonNativeProjectsDoNotRequireAnAutomaticProductsGroup(_ customGroup: Bool) throws {

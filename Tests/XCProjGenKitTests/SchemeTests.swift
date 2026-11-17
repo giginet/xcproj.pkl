@@ -3,7 +3,7 @@ import Testing
 
 @testable import XCProjGenKit
 
-@Suite(.enabled(if: hasPkl, "Set PKL_EXEC to exercise shared scheme generation"))
+@Suite(.requiresPkl)
 struct SchemeTests {
     @Test func projectSchemeRendersActionsAndPreservesUnmanagedSchemes() throws {
         let fixture = try Fixture()

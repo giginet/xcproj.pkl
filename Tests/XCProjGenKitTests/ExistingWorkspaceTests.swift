@@ -3,7 +3,7 @@ import Testing
 
 @testable import XCProjGenKit
 
-@Suite(.enabled(if: hasPkl, "Set PKL_EXEC to test existing workspace project references"))
+@Suite(.requiresPkl)
 struct ExistingWorkspaceTests {
     @Test func mixedWorkspaceRebasesReferencesAndPreservesExistingProject() throws {
         let f = try Fixture()
