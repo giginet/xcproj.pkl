@@ -12,23 +12,25 @@ struct ProjectInitializerTests {
         try ProjectInitializer.write(to: f.url("New Workspace"), type: type)
         #expect(try f.text("New Workspace/PklProject").contains(ToolDefaults.packageURI))
         #expect(
-            try f.text("New Workspace/Main.pkl").contains(
+            try f.text("New Workspace/Project.pkl").contains(
                 type == .workspace ? "@xcproj/Workspace.pkl" : "@xcproj/Project.pkl"))
-        // Dependencies are resolved by validate/generate, never by init.
-        #expect(!f.exists("New Workspace/PklProject.deps.json"))
-        #expect(f.exists("New Workspace/Projects/Core/Project.pkl") == (type == .workspace))
+        // init only writes the two configuration files; it never resolves dependencies or adds sources.
+        #expect(
+            try FileManager.default.contentsOfDirectory(atPath: f.url("New Workspace").path)
+                .sorted()
+                == ["PklProject", "Project.pkl"])
     }
 
     @Test func existingFilesAreNeverOverwrittenAndNothingIsCreatedOnConflict() throws {
         let f = try Fixture()
-        try f.file("Conflict/Main.pkl", "keep me")
+        try f.file("Conflict/Project.pkl", "keep me")
         expectFailure(containing: "Refusing to overwrite") {
             try ProjectInitializer.write(to: f.url("Conflict"), type: .workspace)
         }
-        #expect(try f.text("Conflict/Main.pkl") == "keep me")
+        #expect(try f.text("Conflict/Project.pkl") == "keep me")
         #expect(!f.exists("Conflict/PklProject"))
 
-        try f.file("Blocked/Projects", "a regular file")
+        try f.file("Blocked", "a regular file")
         expectFailure(containing: "Expected a directory") {
             try ProjectInitializer.write(to: f.url("Blocked"), type: .workspace)
         }
@@ -37,20 +39,20 @@ struct ProjectInitializerTests {
 }
 
 struct EntryModuleTests {
-    @Test func directoriesSelectMainAndModulesSelectThemselves() throws {
+    @Test func directoriesSelectProjectAndModulesSelectThemselves() throws {
         let f = try Fixture()
-        try f.file("App/Main.pkl")
-        let module = try f.file("App/Projects/Core/Project.pkl")
-        #expect(try EntryModule.resolve(f.url("App")).path == f.url("App/Main.pkl").path)
+        try f.file("App/Project.pkl")
+        let module = try f.file("App/Custom.pkl")
+        #expect(try EntryModule.resolve(f.url("App")).path == f.url("App/Project.pkl").path)
         #expect(try EntryModule.resolve(module).path == module.path)
     }
 
     @Test func otherPklFilesAreNotSelectedAutomatically() throws {
         let f = try Fixture()
-        try f.file("Empty/Workspace.pkl")
-        try f.directory("Folder/Main.pkl")
+        try f.file("Empty/Main.pkl")
+        try f.directory("Folder/Project.pkl")
         for directory in ["Empty", "Folder"] {
-            expectFailure(containing: "Main.pkl") {
+            expectFailure(containing: "Project.pkl") {
                 _ = try EntryModule.resolve(f.url(directory))
             }
         }
@@ -63,7 +65,7 @@ struct EntryModuleTests {
     func generatedArtifactsAreNotAcceptedAsInput(_ path: String) throws {
         let f = try Fixture()
         if path.hasSuffix(".xcproj") { try f.file(path, "{}") } else { try f.directory(path) }
-        expectFailure(containing: "Main.pkl") { _ = try EntryModule.resolve(f.url(path)) }
+        expectFailure(containing: "Project.pkl") { _ = try EntryModule.resolve(f.url(path)) }
     }
 
     @Test func pklProjectIsDiscoveredUpwardFromTheCanonicalModuleLocation() throws {
@@ -71,7 +73,7 @@ struct EntryModuleTests {
         try f.file("Root/PklProject")
         let module = try f.file("Root/Projects/Core/Project.pkl")
         #expect(EntryModule.projectDirectory(for: module)?.path == f.url("Root").path)
-        #expect(EntryModule.projectDirectory(for: try f.file("Outside/Main.pkl")) == nil)
+        #expect(EntryModule.projectDirectory(for: try f.file("Outside/Project.pkl")) == nil)
 
         // A symlinked module belongs to the Pkl project of its real location.
         try f.symlink("Outside/Linked.pkl", to: module.path)

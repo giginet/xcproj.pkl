@@ -3,7 +3,7 @@
 ## Modules, classes, and shared settings
 
 Define target templates with `extends`, specialize objects with amendments, and
-combine `Mixin<X.Settings>` values with `|>`. Put these modules next to `Main.pkl`.
+combine `Mixin<X.Settings>` values with `|>`. Put these modules next to `Project.pkl`.
 
 `Settings.pkl`:
 
@@ -57,7 +57,7 @@ These mixins work on project and target settings.
 `sources { new { ... } }` appends to the inherited listing;
 `sources = new Listing { ... }` replaces it.
 
-`Main.pkl`:
+`Project.pkl`:
 
 ```pkl
 amends "@xcproj/Project.pkl"

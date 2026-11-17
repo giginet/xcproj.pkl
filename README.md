@@ -17,112 +17,132 @@ xcproj.pkl is a DSL for describing the `*.xcproj` JSON format. It lets you defin
 
 Inspired by [XcodeGen](https://github.com/yonaskolb/XcodeGen) and [Tuist](https://tuist.dev/), this project aims to provide a declarative language for defining projects.
 
-## Defining a Basic Project
+## Getting Started
 
-xcproj.pkl provides type-safe models based on [apple/xcode-project-format](https://github.com/apple/xcode-project-format).
+Use the `xcprojgen` CLI to create a Pkl project, define its targets, and generate Xcode projects or workspaces. Run the following steps from your project's root directory.
 
-For example, the following `Main.pkl` defines a framework and its test target. `@xcproj` is a package dependency declared in `PklProject`. See Usage below for setup instructions.
+### 1. Prerequisites
 
-```pkl
-amends "@xcproj/Project.pkl"
+- macOS 14 or later
+- Xcode 27.2 or later
+- Homebrew
 
-name = "Core"
-bundleIdPrefix = "com.example.core"
-
-targets {
-  ["core"] {
-    name = "Core"
-    type = "framework"
-    platform = "macOS"
-    deploymentTarget = "14.0"
-    sources { new { path = "Sources" } }
-  }
-  ["tests"] {
-    name = "CoreTests"
-    type = "bundle.unit-test"
-    platform = "macOS"
-    deploymentTarget = "14.0"
-    sources { new { path = "Tests" } }
-    dependencies { new { target = "core" } }
-  }
-}
-```
-
-See [Examples](./Examples) for details.
-
-
-## Prerequisites
-
-- Xcode 27.2+
-- Pkl Compiler
-    - `brew install pkl`
-
-## xcprojgen
-
-This project includes the `xcprojgen` CLI, which creates Pkl templates and generates Xcode project and workspace bundles.
-
-### Installation
+### 2. Install xcprojgen
 
 ```sh
 brew tap giginet/xcproj https://github.com/giginet/xcproj.pkl.git
 brew install giginet/xcproj/xcprojgen
 ```
 
-### Usage
+Homebrew also installs the required Pkl compiler (0.33.0 or later).
+
+### 3. Check your environment
 
 ```sh
-# Check Pkl (0.33.0+) and the Xcode tools xcodeproj and xcprojformatter
 xcprojgen doctor
-
-# Create a workspace scaffold (--type workspace is optional)
-xcprojgen init MyWorkspace --type workspace
-
-# Create a scaffold for a single project
-xcprojgen init MyLibrary --type project
-
-# Resolve dependencies and validate the Pkl project without writing output
-xcprojgen validate MyWorkspace
-
-# Generate the workspace and each of its projects
-xcprojgen generate MyWorkspace
-open MyWorkspace/Workspace.xcworkspace
-
-# Or generate from Main.pkl in the current directory
-(cd MyWorkspace && xcprojgen generate)
-
-# Generate a single project
-xcprojgen generate MyLibrary
-open MyLibrary/Core.xcodeproj
-
-# Specify the workspace output directory
-xcprojgen generate MyWorkspace --output-dir /tmp/generated
-
-# Generate from a specific Pkl file
-xcprojgen generate MyWorkspace/Projects/Core/Project.pkl
 ```
 
-`generate [path]` selects the entry point from its optional argument:
+This checks the Pkl version and the availability of `xcodeproj` and `xcprojformatter` in the Xcode installation selected by `xcode-select` or `DEVELOPER_DIR`. If either Xcode tool is unavailable, install and select Xcode 27.2 or later.
 
-- No argument: `Main.pkl` in the current working directory.
-- Directory: `Main.pkl` inside that directory.
-- `.pkl` file: that file itself.
+### 4. Initialize a Pkl project
 
-Relative paths are resolved from the current working directory. To use another entry point, pass its `.pkl` file path directly.
+```sh
+xcprojgen init
+```
 
-`validate [path]` uses the same input rules. It resolves dependencies and checks the generation plan without writing Xcode projects or workspaces.
+This creates only `PklProject` and `Project.pkl` in the current directory. The first declares the `xcproj` package dependency; the second contains the target templates and project definition. Existing files are never overwritten.
 
-`generate` formats each generated `project.xcproj` with `xcrun xcprojformatter` before saving it. Repeated generation leaves unchanged files untouched. Existing projects imported into a workspace are not formatted. Xcode tools use the installation selected by `xcode-select` or `DEVELOPER_DIR`; `doctor` checks that both `xcrun xcodeproj` and `xcrun xcprojformatter` can run. If either tool is unavailable, install Xcode 27.2 or later and select that installation.
+### 5. Edit Project.pkl
 
-### Agent skill
+Replace `Project.pkl` with the following to name the project and its targets `MyApp`, enable Swift 6, and share iOS settings between the framework and its tests:
+
+```pkl
+amends "@xcproj/Project.pkl"
+import "@xcproj/Project.pkl" as X
+
+local open class BaseTarget extends X.Target {
+  platform = "iOS"
+  deploymentTarget = "26.0"
+  settings { base { ["SWIFT_VERSION"] = "6.0" } }
+}
+
+local class Framework extends BaseTarget { type = "framework" }
+local class UnitTests extends BaseTarget { type = "bundle.unit-test" }
+
+name = "MyApp"
+bundleIdPrefix = "com.example.myapp"
+targets {
+  ["framework"] = new Framework {
+    name = "MyApp"
+    sources { new { path = "MyApp" } }
+  }
+  ["tests"] = new UnitTests {
+    name = "MyAppTests"
+    sources { new { path = "MyAppTests" } }
+    dependencies { new { target = "framework" } }
+  }
+}
+```
+
+`@xcproj` refers to the dependency declared in `PklProject`. Change `platform` and `deploymentTarget` in `BaseTarget` to configure both targets. The project name determines the bundle name, `MyApp.xcodeproj`.
+
+`init` does not generate source files. Place your files in `MyApp/` and `MyAppTests/` alongside `Project.pkl` before validating or generating. The `sources` entries add references to files in those directories and their subdirectories to the corresponding targets. Change each `path` to use a different source directory.
+
+### 6. Validate the Pkl project
+
+```sh
+xcprojgen validate
+```
+
+This resolves the package dependencies and validates the configuration without writing Xcode bundles.
+
+### 7. Generate the project
+
+```sh
+xcprojgen generate
+```
+
+This creates `MyApp.xcodeproj` in the current directory. Each generated `project.xcproj` is formatted with `xcprojformatter`; repeated generation leaves unchanged files untouched.
+
+### 8. Open the project
+
+```sh
+open MyApp.xcodeproj
+```
+
+## Agent Skill
 
 Export the bundled [Agent Skills](https://agentskills.io/specification) instructions
 into your agent's skills directory:
 
 ```sh
-xcprojgen skills export .agents/skills
+xcprojgen skills export ~/.agents/skills
 ```
 
-## Advanced Project Examples
+## Advanced Usage
+
+### Other CLI options
+
+```sh
+# Generate a project in another directory
+xcprojgen generate ../OtherProject
+
+# Specify the output directory
+xcprojgen generate --output-dir /tmp/generated
+
+# Generate from an explicitly selected Pkl file
+xcprojgen generate Project.pkl
+```
+
+`generate [path]` selects the entry point from its optional argument:
+
+- No argument: `Project.pkl` in the current working directory.
+- Directory: `Project.pkl` inside that directory.
+- `.pkl` file: that file itself.
+
+Relative paths are resolved from the current working directory. To use another entry point, pass its `.pkl` file path directly.
+
+`validate [path]` uses the same input rules. `init [dir]` defaults to `--type project`; use `--type workspace` for a workspace entry.
 
 ### Target Template Inheritance
 
@@ -147,7 +167,7 @@ open class ExtensionSafeFramework extends Framework {
 }
 ```
 
-Import the templates from `Main.pkl` and specify the name and dependencies for each target.
+Import the templates from `Project.pkl` and specify the name and dependencies for each target.
 
 ```pkl
 amends "@xcproj/Project.pkl"
@@ -216,30 +236,23 @@ See [Examples/Shared/Settings.pkl](Examples/Shared/Settings.pkl) and
 [the example guide](Examples/README.md#composing-shared-settings) for this pattern
 in the runnable examples.
 
-### Generating a Workspace
+### Initialize a Workspace
 
-You can also concisely define a `*.xcworkspace` containing multiple Xcode projects. In addition to importing other Pkl files, you can include existing Xcode projects.
-
-The following example uses the configuration from [Examples/MixedWorkspace/Main.pkl](./Examples/MixedWorkspace/Main.pkl).
-
-```pkl
-amends "@xcproj/Workspace.pkl"
-import "../Tool/Main.pkl" as Tool
-
-name = "Mixed"
-projects {
-  ["tool"] = Tool
-  ["legacy"] = module.importXcodeproj("Legacy.xcodeproj")
-}
-```
-
-Run the following commands from the repository root to generate `Mixed.xcworkspace` and `Tool.xcodeproj` from the imported Pkl project. The existing `Legacy.xcodeproj` is added as a reference.
+From the directory you want to initialize as a workspace, run:
 
 ```sh
-swift run xcprojgen validate Examples/MixedWorkspace
-swift run xcprojgen generate Examples/MixedWorkspace
-open Examples/MixedWorkspace/Mixed.xcworkspace
+xcprojgen init --type workspace
 ```
+
+This creates `PklProject` and a `Project.pkl` that amends `@xcproj/Workspace.pkl`, with the target templates and member project defined inline. Edit `Project.pkl`, then run:
+
+```sh
+xcprojgen validate
+xcprojgen generate
+open Workspace.xcworkspace
+```
+
+See [Examples/Workspace](./Examples/Workspace/Project.pkl) for a workspace with multiple Pkl projects, and [Examples/MixedWorkspace](./Examples/MixedWorkspace/Project.pkl) for importing existing Xcode projects. The [example guide](./Examples/README.md) includes commands to generate and build them.
 
 ## Reference
 

@@ -1,10 +1,13 @@
 # Projects inside a Workspace
 
-Use one Pkl module per Xcode project and import them from the workspace entry:
+For a small workspace, `xcprojgen init --type workspace` puts the templates and
+member projects inside `Project.pkl`. Inline project paths are relative to that
+entry file. For a larger workspace, use one Pkl module per Xcode project and
+import them from the workspace entry:
 
 ```text
 PklProject
-Main.pkl
+Project.pkl
 Templates/FrameworkProject.pkl
 Modules/Core/Project.pkl
 Modules/Core/Sources/
@@ -52,7 +55,7 @@ amends "../../Templates/FrameworkProject.pkl"
 name = "Core"
 ```
 
-The root `Main.pkl` collects both Projects and optionally defines a shared scheme:
+The root `Project.pkl` collects both Projects and optionally defines a shared scheme:
 
 ```pkl
 amends "@xcproj/Workspace.pkl"

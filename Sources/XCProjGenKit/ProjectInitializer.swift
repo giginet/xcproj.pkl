@@ -37,27 +37,37 @@ public enum ProjectInitializer {
     }
 
     private static func templates(for type: InitializationType) -> [String: String] {
-        let projectDirectory = type == .workspace ? "Projects/Core/" : ""
-        let templateImport = type == .workspace ? "../../Templates.pkl" : "Templates.pkl"
         let project = """
-            amends "@xcproj/Project.pkl"
-            import "\(templateImport)" as Templates
-
             name = "Core"
             bundleIdPrefix = "com.example.core"
             targets {
-              ["framework"] = new Templates.Framework {
+              ["framework"] = new Framework {
                 name = "Core"
-                sources { new { path = "Sources" } }
               }
-              ["tests"] = new Templates.UnitTests {
+              ["tests"] = new UnitTests {
                 name = "CoreTests"
-                sources { new { path = "Tests" } }
                 dependencies { new { target = "framework" } }
               }
             }
             """
-        var files = [
+        let definition: String
+        switch type {
+        case .project:
+            definition = project
+        case .workspace:
+            let nestedProject = project.split(separator: "\n").map { "    " + $0 }
+                .joined(separator: "\n")
+            definition = """
+                name = "Workspace"
+                projects {
+                  ["core"] = new X {
+                \(nestedProject)
+                  }
+                }
+                """
+        }
+        let schema = type == .project ? "Project" : "Workspace"
+        return [
             "PklProject": """
             amends "pkl:Project"
 
@@ -67,46 +77,20 @@ public enum ProjectInitializer {
               }
             }
             """,
-            "Main.pkl": type == .project
-                ? project
-                : #"""
-                amends "@xcproj/Workspace.pkl"
-
-                name = "Workspace"
-                projects {
-                  ["core"] = import("Projects/Core/Project.pkl")
-                }
-                """#,
-            "Templates.pkl": #"""
+            "Project.pkl": """
+            amends "@xcproj/\(schema).pkl"
             import "@xcproj/Project.pkl" as X
 
-            open class MacOSTarget extends X.Target {
-              platform = "macOS"
-              deploymentTarget = "14.0"
+            local open class BaseTarget extends X.Target {
+              platform = "iOS"
+              deploymentTarget = "26.0"
             }
 
-            open class Framework extends MacOSTarget { type = "framework" }
-            open class UnitTests extends MacOSTarget { type = "bundle.unit-test" }
-            """#,
-            "\(projectDirectory)Sources/Core.swift": """
-            public enum Core {
-                public static let greeting = "Hello, xcprojgen!"
-            }
-            """,
-            "\(projectDirectory)Tests/CoreTests.swift": """
-            import Core
-            import XCTest
+            local class Framework extends BaseTarget { type = "framework" }
+            local class UnitTests extends BaseTarget { type = "bundle.unit-test" }
 
-            final class CoreTests: XCTestCase {
-                func testGreeting() {
-                    XCTAssertEqual(Core.greeting, "Hello, xcprojgen!")
-                }
-            }
+            \(definition)
             """,
         ]
-        if type == .workspace {
-            files["Projects/Core/Project.pkl"] = project
-        }
-        return files
     }
 }

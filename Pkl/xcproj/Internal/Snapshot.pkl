@@ -74,10 +74,10 @@ function project(p: Model, k: String): W.ProjectInput = new {
   targets = p.targets.toMap().keys.toList().sort().map((key) -> target(p, projectId(k), key, p.targets[key]))
 }
 
-function projectPaths(p: Model, k: String): List<W.PathRequest> =
+function projectPaths(p: Model, k: String, source: String): List<W.PathRequest> =
   let (prefix = projectId(k))
   (new Listing<W.PathRequest> {
-    path("\(prefix):module", uri(reflect.moduleOf(p).uri), "", "file", true, "Project module \(k)")
+    path("\(prefix):module", uri(source), "", "file", true, "Project module \(k)")
     path("\(prefix):root", ref("\(prefix):module", "parent"), p.projectDir, "directory", true, "\(k).projectDir")
     path("\(prefix):bundle", ref("\(prefix):root", "self"), "\(p.name).xcodeproj", "any", false, "\(k) output")
     path("\(prefix):file", ref("\(prefix):bundle", "self"), "project.xcproj", "any", false, "\(k) output file")
@@ -110,7 +110,7 @@ function single(p: Model): W.Snapshot = new {
   rootArtifactId = projectId("project")
   projects = List(project(p, "project"))
   schemes = Schemes.projectEntries(p.schemes, "project", projectId("project"))
-  paths = projectPaths(p, "project") + Schemes.paths(schemes)
+  paths = projectPaths(p, "project", reflect.moduleOf(p).uri) + Schemes.paths(schemes)
   artifacts = List(artifact(projectId("project"), "project")) + Schemes.artifacts(schemes)
 }
 
@@ -126,7 +126,12 @@ function workspace(label: String, directory: String, source: String, entries: Ma
       key = k; bundlePathId = "\(projectId(k)):bundle"
     })
     schemes = generatedKeys.flatMap((k) -> Schemes.projectEntries((entries[k] as Model).schemes, k, projectId(k))) + Schemes.workspaceEntries(schemeEntries)
-    paths = generatedKeys.flatMap((k) -> projectPaths(entries[k] as Model, k)) + existingKeys.map((k) ->
+    paths = generatedKeys.flatMap((k) ->
+      let (p = entries[k] as Model)
+      let (origin = reflect.moduleOf(p).uri)
+      // Inline projects belong to the workspace; imported modules keep their own roots.
+      projectPaths(p, k, if (origin == reflect.moduleOf(Model).uri) source else origin)
+    ) + existingKeys.map((k) ->
       path("\(projectId(k)):bundle", ref("workspace:root", "self"), (entries[k] as Workspace.ExistingProject).path, "directory", true, "\(k) existing project")
     ) + List(
       path("workspace:module", uri(source), "", "file", true, "Workspace module"),

@@ -6,6 +6,35 @@ import XcodeProjectFormat
 
 @Suite(.requiresPkl)
 struct NativeWorkspaceTests {
+    @Test func inlineProjectsUseTheWorkspaceDirectoryAndImportedProjectsKeepTheirOwn() throws {
+        let f = try Fixture()
+        try f.directory("Sources")
+        try f.project(
+            #"targets { ["app"] { name = "App"; type = "tool"; platform = "macOS" } }"#,
+            at: "Imported/Project.pkl")
+        let entry = try f.workspace(
+            #"""
+            ["first"] {
+              name = "First"
+              targets { ["lib"] { name = "First"; type = "framework"; platform = "iOS"; sources { new { path = "Sources" } } } }
+            }
+            ["second"] {
+              name = "Second"
+              targets { ["lib"] { name = "Second"; type = "framework"; platform = "iOS" } }
+            }
+            ["imported"] = import("Imported/Project.pkl")
+            """#)
+        let plan = try GenerationPlan.compile(source: entry, outputDirectory: f.url("Output"))
+        #expect(plan.projectCount == 3 && plan.targetCount == 3)
+        #expect(
+            Set(plan.projects.map { $0.bundle.path })
+                == Set([
+                    f.url("First.xcodeproj").path, f.url("Second.xcodeproj").path,
+                    f.url("Imported/Example.xcodeproj").path,
+                ]))
+        #expect(plan.destination.path == f.url("Output/Modular.xcworkspace").path)
+    }
+
     @Test func standaloneAndWorkspaceMatchAndXMLRebasesAndEscapes() throws {
         let f = try Fixture()
         let body =

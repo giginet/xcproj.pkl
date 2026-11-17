@@ -12,7 +12,7 @@ struct ExistingWorkspaceTests {
             #"targets { ["tool"] { name = "Generated"; type = "tool" } }"#,
             at: "Generated/Project.pkl")
         let source = try f.file(
-            "Config/Main.pkl",
+            "Config/Project.pkl",
             """
             amends \(quoted(workspaceSchema))
             name = "Mixed"

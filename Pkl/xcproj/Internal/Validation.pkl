@@ -119,10 +119,13 @@ function project(p: W.ProjectInput, facts: W.HostFacts): Boolean =
 function snapshot(s: W.Snapshot, facts: W.HostFacts): Boolean =
   let (bundles = s.artifacts.filter((a) -> a.kind != "scheme").map((a) -> Paths.absolute(facts, a.bundlePathId)))
   let (existingBundles = s.existingProjects.map((p) -> Paths.absolute(facts, p.bundlePathId)))
+  // Multiple inline projects may share the workspace entry module.
+  let (modules = s.projects.map((p) -> Paths.absolute(facts, p.sourcePathId)).filter((source) ->
+    s.kind != "workspace" || source != Paths.absolute(facts, "workspace:module")))
   (new Listing<Boolean> {
     check(s.protocolVersion == 1 && s.schemaVersion == 2 && facts.protocolVersion == 1, "Unsupported protocol or schemaVersion")
     check(s.paths.map((p) -> p.id).toSet() == facts.paths.keys, "HostFacts do not match Snapshot path requests")
-    check(s.projects.map((p) -> Paths.absolute(facts, p.sourcePathId)).toSet().length == s.projects.length, "Duplicate project module")
+    check(modules.toSet().length == modules.length, "Duplicate project module")
     check(bundles.toSet().length == bundles.length, "Duplicate workspace/project output paths")
     check(existingBundles.toSet().length == existingBundles.length, "Duplicate existing workspace project reference")
     for (existing in existingBundles) {
