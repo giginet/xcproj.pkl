@@ -5,12 +5,12 @@ Pull requests and pushes to `main` run five workflows. Each also supports manual
 | Workflow | Checks |
 | --- | --- |
 | Build and test xcprojgen | Builds the CLI and runs every Swift test with `PKL_EXEC` set, including Pkl integration and package-consumption tests. |
-| swift-format | Runs strict `xcrun swift-format` lint on every tracked Swift file using the repository's four-space configuration. |
+| swift-format | Runs strict `swift format` lint on Ubuntu with the official Swift 6.4.2 container, using the repository's four-space configuration. |
 | Pkl tests | Runs the public API tests and prepares release assets without uploading them. |
-| Examples smoke tests | Generates, validates, and builds Tool, Workspace, iOS, Advanced, and MixedWorkspace in separate matrix jobs. |
+| Examples smoke tests | Validates, generates, and builds Tool, Workspace, iOS, Advanced, and MixedWorkspace sequentially in one macOS job, reusing the CLI build outputs. |
 | Pkl API documentation | Generates pkldoc and uploads a Pages artifact. Deploys on pushes to `main` and manual runs on `main`. |
 
-The macOS workflows use the ARM64 `xcode-27` runner and explicitly select `/Applications/Xcode_27.2.app/Contents/Developer`. Xcode 27.2 is required for the JSON project format; the runner's default Xcode may be older. See the [official runner image inventory](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md). Pkl-only jobs run on Ubuntu 24.04.
+CLI integration tests and Examples use the ARM64 `xcode-27` runner and explicitly select `/Applications/Xcode_27.2.app/Contents/Developer`. Xcode 27.2 is required for the JSON project tools used during generation. See the [official runner image inventory](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md). Pkl tests, package preparation, Pkl API documentation, and swift-format run on Ubuntu 24.04. The formatter uses the [official Swift container](https://www.swift.org/install/linux/ubuntu/24_04/).
 
 The local `setup-pkl` action requires a `version` input. Workflows currently select Pkl 0.33.0:
 

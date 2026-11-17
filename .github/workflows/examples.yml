@@ -15,25 +15,11 @@ concurrency:
 
 jobs:
   smoke-test:
-    name: ${{ matrix.example }}
+    name: All examples
     runs-on: xcode-27
     timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - example: Tool
-            script: Scripts/smoke-test.sh
-          - example: Workspace
-            script: Scripts/workspace-smoke-test.sh
-          - example: iOS
-            script: Scripts/ios-smoke-test.sh
-          - example: Advanced
-            script: Scripts/advanced-smoke-test.sh
-          - example: MixedWorkspace
-            script: Scripts/mixed-workspace-smoke-test.sh
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,7 +27,13 @@ jobs:
       - uses: ./.github/actions/setup-pkl
         with:
           version: '0.33.0'
-      - name: Generate, validate, and build the example
-        env:
-          SMOKE_SCRIPT: ${{ matrix.script }}
-        run: bash "$SMOKE_SCRIPT"
+      - name: Test Tool
+        run: bash Scripts/smoke-test.sh
+      - name: Test Workspace
+        run: bash Scripts/workspace-smoke-test.sh
+      - name: Test iOS
+        run: bash Scripts/ios-smoke-test.sh
+      - name: Test Advanced
+        run: bash Scripts/advanced-smoke-test.sh
+      - name: Test MixedWorkspace
+        run: bash Scripts/mixed-workspace-smoke-test.sh
