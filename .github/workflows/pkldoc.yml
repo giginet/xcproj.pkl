@@ -30,10 +30,9 @@ jobs:
           pkldoc --no-symlinks --output-dir "$RUNNER_TEMP/pkldoc" \
             --property "sourceRef=$GITHUB_SHA" \
             Docs/pkldoc/docsite-info.pkl Pkl/xcproj/doc-package-info.pkl \
-            Pkl/xcproj/Project.pkl Pkl/xcproj/Workspace.pkl \
-            Pkl/xcproj/Internal/{ProjectModel,SchemaTypes,SchemeModel,WorkspaceModel}.pkl
+            Pkl/xcproj/Project.pkl Pkl/xcproj/Workspace.pkl
           test -f "$RUNNER_TEMP/pkldoc/index.html"
-          test -f "$RUNNER_TEMP/pkldoc/xcproj/current/Internal/ProjectModel/Target.html"
+          test -f "$RUNNER_TEMP/pkldoc/xcproj/current/Project/Target.html"
       - name: Upload documentation
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

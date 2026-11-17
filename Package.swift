@@ -17,12 +17,16 @@ let package = Package(
             name: "PklRuntimeResources",
             path: "Pkl",
             exclude: [
-                "xcproj/PklProject", "xcproj/Project.pkl", "xcproj/Workspace.pkl",
-                "xcproj/README.md", "xcproj/doc-package-info.pkl",
+                "xcproj/PklProject", "xcproj/README.md", "xcproj/doc-package-info.pkl",
                 "xcproj/tests",
             ],
             sources: ["RuntimeResources.swift"],
-            resources: [.copy("xcproj/Internal")]
+            // Internal modules import the public schema modules as their parent directory.
+            resources: [
+                .copy("xcproj/Internal"),
+                .copy("xcproj/Project.pkl"),
+                .copy("xcproj/Workspace.pkl"),
+            ]
         ),
         .target(
             name: "XCProjGenKit",
