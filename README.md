@@ -63,36 +63,10 @@ This project includes the `xcprojgen` CLI, which creates Pkl templates and gener
 
 ### Installation
 
-After the first release, install the prebuilt CLI from this repository's Homebrew tap:
-
 ```sh
 brew tap giginet/xcproj https://github.com/giginet/xcproj.pkl.git
 brew install giginet/xcproj/xcprojgen
-xcprojgen doctor
 ```
-
-The formula installs Pkl as a dependency. The CLI archive contains a Universal
-binary for Apple Silicon and Intel Macs, plus its required Pkl renderer bundle.
-The CLI requires macOS 14 or later; generating projects also requires a macOS
-version that supports Xcode 27.2 or later. Keep the executable and resource
-bundle together if installing an archive manually.
-
-No release has been published yet. The first release creates the installable
-formula automatically; until then, build from source with
-`swift build --configuration release` and use `swift run xcprojgen` from the
-checkout.
-
-To upgrade:
-
-```sh
-brew update
-brew upgrade giginet/xcproj/xcprojgen
-```
-
-CLI and Pkl package releases share one `X.Y.Z` version. `xcprojgen init` pins the
-Pkl package matching the installed CLI; upgrading the CLI does not rewrite
-existing projects' dependencies. See [the release flow](./Docs/CI.md#releasing-cli-and-pkl-together)
-for building both packages and automatically updating the formula.
 
 ### Usage
 
