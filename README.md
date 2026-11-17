@@ -10,6 +10,9 @@
 [![CLI Platform: macOS 14+](https://img.shields.io/badge/CLI%20Platform-macOS%2014%2B-lightgray?logo=apple&style=flat-square)](./Package.swift)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-darkgray?style=flat-square)](./LICENSE)
 
+> [!WARNING]
+> This project is under active development. APIs, the Pkl schema, and CLI behavior may change without notice.
+
 xcproj.pkl is a DSL for describing the `*.xcproj` JSON format. It lets you define Xcode projects using the [apple/pkl](https://github.com/apple/pkl) language.
 
 Inspired by [XcodeGen](https://github.com/yonaskolb/XcodeGen) and [Tuist](https://tuist.dev/), this project aims to provide a declarative language for defining projects.
