@@ -74,24 +74,6 @@ bundleIdPrefix = "com.example.myapp"
 targets {
   ["framework"] = new Framework {
     name = "MyApp"
-  }
-  ["tests"] = new UnitTests {
-    name = "MyAppTests"
-    dependencies { new { target = "framework" } }
-  }
-}
-```
-
-`@xcproj` refers to the dependency declared in `PklProject`. Change `platform` and `deploymentTarget` in `BaseTarget` to configure both targets. The project name determines the bundle name, `MyApp.xcodeproj`.
-
-`init` creates configuration files only. The sample above has no `sources`, so it does not register any source files. Target names such as `MyApp` and `MyAppTests` do not automatically select matching directories.
-
-To register existing `MyApp` and `MyAppTests` directories, replace only the `targets` block with:
-
-```pkl
-targets {
-  ["framework"] = new Framework {
-    name = "MyApp"
     sources { new { path = "MyApp" } }
   }
   ["tests"] = new UnitTests {
@@ -102,25 +84,9 @@ targets {
 }
 ```
 
-Each source entry defaults to `kind = "folder"`. Xcode tracks files in that directory and its subdirectories, assigning source files and resources to the target according to their file types. You do not need to list each file separately.
+`@xcproj` refers to the dependency declared in `PklProject`. Change `platform` and `deploymentTarget` in `BaseTarget` to configure both targets. The project name determines the bundle name, `MyApp.xcodeproj`.
 
-Paths are relative to `projectDir`, which defaults to the directory containing `Project.pkl`. In this guide, the paths above refer to `MyApp/MyApp/` and `MyApp/MyAppTests/`. The referenced directories must exist before running `validate` or `generate`.
-
-For a different layout, such as `Sources/MyApp` and `Tests/MyAppTests` beside `Project.pkl`, use this `targets` block instead:
-
-```pkl
-targets {
-  ["framework"] = new Framework {
-    name = "MyApp"
-    sources { new { path = "Sources/MyApp" } }
-  }
-  ["tests"] = new UnitTests {
-    name = "MyAppTests"
-    sources { new { path = "Tests/MyAppTests" } }
-    dependencies { new { target = "framework" } }
-  }
-}
-```
+`init` does not generate source files. Place your files in `MyApp/` and `MyAppTests/` alongside `Project.pkl` before validating or generating. The `sources` entries add references to files in those directories and their subdirectories to the corresponding targets. Change each `path` to use a different source directory.
 
 ### 6. Validate the Pkl project
 
